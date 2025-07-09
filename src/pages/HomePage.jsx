@@ -17,7 +17,7 @@ const HomePage = () => {
           <h1 className="text-5xl font-bold text-gray-800 mb-4">
             Tap<span className="text-blue-600">Battle</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8">Host interactive quizzes and games with real-time participation</p>
+          <p className="text-xl text-gray-600 mb-8">Hosts interactive quizzes and games with real-time participation</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
