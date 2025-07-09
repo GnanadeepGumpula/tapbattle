@@ -1,0 +1,1 @@
+// Vite environment declarations for JavaScript

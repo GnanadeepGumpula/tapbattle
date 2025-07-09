@@ -1,0 +1,10 @@
+{
+  "name": "tapbattle-test",
+  "type": "module",
+  "scripts": {
+    "test": "node testGoogleSheets.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  }
+}
