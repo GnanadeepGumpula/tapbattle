@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main
+      - main  # or your main development branch
 
 jobs:
   build:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          persist-credentials: false  # ✅ important
+          persist-credentials: false  # ✅ important for GitHub Pages
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -31,5 +31,8 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-          publish_branch: gh-pages  # ✅ add this
-          enable_jekyll: false      # optional
+          publish_branch: gh-pages
+          enable_jekyll: false
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: "🚀 Deploy to GitHub Pages [skip ci]"
