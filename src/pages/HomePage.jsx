@@ -1,9 +1,9 @@
-"use client"
-import { useNavigate } from "react-router-dom"
-import { Users, Crown, Zap } from "lucide-react"
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Users, Crown, Zap } from 'lucide-react';
 
 const HomePage = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -11,19 +11,22 @@ const HomePage = () => {
         <div className="text-center mb-12">
           <div className="flex justify-center mb-6">
             <div className="relative">
-              <img src="/image/tapbattle-logo.jpg" alt="TapBattle Logo" className="w-20 h-20 object-contain" />
+              <Zap className="w-16 h-16 text-blue-600 animate-pulse-slow" />
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-orange-500 rounded-full animate-bounce-slow"></div>
             </div>
           </div>
           <h1 className="text-5xl font-bold text-gray-800 mb-4">
             Tap<span className="text-blue-600">Battle</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8">Hosts interactive quizzes and games with real-time participation</p>
+          <p className="text-xl text-gray-600 mb-8">
+            Host interactive quizzes and games with real-time participation
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
-          <div
+          <div 
             className="card hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
-            onClick={() => navigate("/join")}
+            onClick={() => navigate('/join')}
           >
             <div className="text-center">
               <div className="mb-6">
@@ -33,13 +36,15 @@ const HomePage = () => {
                   Enter a joining code to participate in an existing quiz session
                 </p>
               </div>
-              <button className="btn-secondary w-full">Join Now</button>
+              <button className="btn-secondary w-full">
+                Join Now
+              </button>
             </div>
           </div>
 
-          <div
+          <div 
             className="card hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
-            onClick={() => navigate("/host-login")}
+            onClick={() => navigate('/host-login')}
           >
             <div className="text-center">
               <div className="mb-6">
@@ -49,7 +54,9 @@ const HomePage = () => {
                   Create and manage your own quiz sessions with real-time tracking
                 </p>
               </div>
-              <button className="btn-accent w-full">Host Now</button>
+              <button className="btn-accent w-full">
+                Host Now
+              </button>
             </div>
           </div>
         </div>
@@ -79,7 +86,7 @@ const HomePage = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default HomePage
+export default HomePage;

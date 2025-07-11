@@ -55,6 +55,8 @@ const JoinPage = () => {
           setStep(4)
         } else if (formData.joinMode === "existing_team") {
           setStep(3)
+        } else if (formData.joinMode === "new_team") {
+          setStep(5)
         }
       }
     } else if (step === 3 && formData.teamName.trim() && formData.password.trim()) {
@@ -245,6 +247,20 @@ const JoinPage = () => {
                 >
                   <Users className="w-6 h-6 text-teal-600 mx-auto mb-2" />
                   <div className="font-semibold text-gray-800">Join Existing Team</div>
+                </button>
+                <button
+                  onClick={() => {
+                    handleInputChange("joinMode", "new_team")
+                    setStep(5)
+                  }}
+                  className={`w-full p-4 rounded-xl border-2 transition-all ${
+                    formData.joinMode === "new_team"
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-gray-200 hover:border-orange-300"
+                  }`}
+                >
+                  <Users className="w-6 h-6 text-orange-600 mx-auto mb-2" />
+                  <div className="font-semibold text-gray-800">Create New Team</div>
                 </button>
               </div>
             </div>

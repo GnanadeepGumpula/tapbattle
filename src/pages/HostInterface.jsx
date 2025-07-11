@@ -130,7 +130,19 @@ const HostInterface = () => {
 
   const loadTeams = async () => {
     try {
-      return await googleSheetsService.getSessionTeams(sessionId)
+      const response = await googleSheetsService.makeRequest("/values/Teams!A:E")
+      const values = response.values || []
+      return values
+        .slice(1)
+        .filter((row) => row[1] === sessionId)
+        .map((row) => ({
+          teamId: row[0],
+          sessionId: row[1],
+          teamName: row[2],
+          password: row[3],
+          createdBy: row[4] || "host", // Default to "host" if not specified
+          createdAt: row[5],
+        }))
     } catch (error) {
       console.error("Error loading teams:", error)
       return []
@@ -163,12 +175,12 @@ const HostInterface = () => {
     loadAllData()
   }, [loadAllData])
 
-  // Silent real-time updates every 5 seconds (reduced frequency)
+  // Silent real-time updates every second
   useEffect(() => {
     if (!loading && !showModeSelector && !isDeleting) {
       intervalRef.current = setInterval(() => {
         loadAllData(true) // Silent update
-      }, 5000)
+      }, 1000)
     }
 
     return () => {
@@ -235,7 +247,7 @@ const HostInterface = () => {
         return
       }
 
-      await googleSheetsService.createTeam(sessionId, newTeam.name, newTeam.password)
+      await googleSheetsService.createTeam(sessionId, newTeam.name, newTeam.password, "host")
       setNewTeam({ name: "", password: "" })
       setShowTeamCreator(false)
       await loadAllData()
@@ -463,7 +475,7 @@ const HostInterface = () => {
                 <Edit className="w-4 h-4 mr-2" />
                 Change Mode
               </button>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 сондары:">
                 <Crown className="w-5 h-5 text-orange-500" />
                 <span className="text-sm text-gray-600">Round {session.round}</span>
               </div>
@@ -676,7 +688,9 @@ const HostInterface = () => {
                                   <Users className="w-3 h-3 mr-1" />
                                   {teamPlayerCount} players
                                 </span>
-                                <span className="text-xs bg-gray-200 px-2 py-1 rounded">Password: {team.password}</span>
+                                <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                                  {team.createdBy === "player" ? "Player-set password" : `Password: ${team.password}`}
+                                </span>
                               </div>
                             </div>
                             <button
@@ -693,7 +707,6 @@ const HostInterface = () => {
                         </div>
                       )
                     })}
-
                     {teams.length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         <Users className="w-12 h-12 mx-auto mb-4 text-gray-400" />
@@ -713,8 +726,12 @@ const HostInterface = () => {
                       <div>
                         <h3 className="text-xl font-bold text-gray-800">{selectedTeam.teamName}</h3>
                         <p className="text-sm text-gray-500">
-                          Password:{" "}
-                          <span className="font-mono bg-gray-100 px-2 py-1 rounded">{selectedTeam.password}</span>
+                          {selectedTeam.createdBy === "player"
+                            ? "Player-set password"
+                            : `Password: `}
+                          {selectedTeam.createdBy !== "player" && (
+                            <span className="font-mono bg-gray-100 px-2 py-1 rounded">{selectedTeam.password}</span>
+                          )}
                         </p>
                         <p className="text-sm text-gray-500">
                           Created: {new Date(selectedTeam.createdAt).toLocaleDateString()}
@@ -785,7 +802,9 @@ const HostInterface = () => {
 
         {activeTab === "players" && (
           <div className="card">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Solo Players ({soloPlayers.length})</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Solo Players ({soloPlayers.length})
+            </h3>
             {soloPlayers.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {soloPlayers.map((player) => (

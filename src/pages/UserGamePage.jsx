@@ -34,7 +34,7 @@ const UserGamePage = () => {
         if (!isUpdatingRef.current) {
           loadGameData(true) // Silent update
         }
-      }, 2000)
+      }, 1000) // Changed from 2000ms to 1000ms for 1-second refresh
     }
 
     return () => {
@@ -103,7 +103,7 @@ const UserGamePage = () => {
         setPressTime(myTap.time)
         setMyPosition(taps.findIndex((tap) => tap.playerName === playerData.playerName) + 1)
       } else if (hasPressed && !myTap) {
-        // Player was reset due to round change
+        // Player禁止: Player was reset due to round change
         setHasPressed(false)
         setPressTime(null)
         setMyPosition(null)
