@@ -17,7 +17,9 @@ import {
   Download,
   Plus,
   Edit,
+  Share2,
 } from "lucide-react"
+import { QRCodeCanvas } from "qrcode.react"
 import googleSheetsService from "../services/googleSheets"
 import dataExportService from "../services/dataExport"
 
@@ -42,6 +44,10 @@ const HostInterface = () => {
   // Use refs to track data without causing re-renders
   const lastUpdateRef = useRef(Date.now())
   const intervalRef = useRef(null)
+  const qrCodeRef = useRef(null)
+
+  // Generate join link
+  const joinLink = `${window.location.origin}/join/${sessionId}`
 
   // Optimized data loading function
   const loadAllData = useCallback(
@@ -292,6 +298,33 @@ const HostInterface = () => {
     alert("Joining code copied to clipboard!")
   }
 
+  const copyJoinLink = () => {
+    navigator.clipboard.writeText(joinLink)
+    alert("Join link copied to clipboard!")
+  }
+
+  const shareJoinLink = async () => {
+    try {
+      await navigator.share({
+        title: `Join Session ${sessionId}`,
+        text: `Join my session with code ${sessionId}`,
+        url: joinLink,
+      })
+    } catch (error) {
+      console.error("Error sharing join link:", error)
+      alert("Failed to share join link. You can copy it instead.")
+    }
+  }
+
+  const downloadQRCode = () => {
+    const canvas = qrCodeRef.current.querySelector("canvas")
+    const url = canvas.toDataURL("image/png")
+    const link = document.createElement("a")
+    link.download = `session-${sessionId}-qrcode.png`
+    link.href = url
+    link.click()
+  }
+
   const handleExportSession = async () => {
     try {
       await dataExportService.exportSessionData(sessionId)
@@ -475,7 +508,7 @@ const HostInterface = () => {
                 <Edit className="w-4 h-4 mr-2" />
                 Change Mode
               </button>
-              <div className="flex items-center space-x-2 сондары:">
+              <div className="flex items-center space-x-2">
                 <Crown className="w-5 h-5 text-orange-500" />
                 <span className="text-sm text-gray-600">Round {session.round}</span>
               </div>
@@ -512,6 +545,50 @@ const HostInterface = () => {
               <h3 className="font-semibold text-orange-800 mb-2">Player Mode</h3>
               <div className="text-sm font-medium text-orange-600">
                 {playerMode === "single" ? "Solo Only" : playerMode === "teams" ? "Teams Only" : "Mixed Mode"}
+              </div>
+            </div>
+          </div>
+
+          {/* Join Link and QR Code Section */}
+          <div className="mt-6 bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-3">Share Session</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-600 mb-2">Join Link</h4>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-blue-600 truncate">{joinLink}</span>
+                  <button
+                    onClick={copyJoinLink}
+                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Copy Link"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  {navigator.share && (
+                    <button
+                      onClick={shareJoinLink}
+                      className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      title="Share Link"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-600 mb-2">QR Code</h4>
+                <div className="flex items-center space-x-2">
+                  <div ref={qrCodeRef}>
+                    <QRCodeCanvas value={joinLink} size={80} />
+                  </div>
+                  <button
+                    onClick={downloadQRCode}
+                    className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    title="Download QR Code"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

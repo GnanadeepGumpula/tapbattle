@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Hash, Users, Play, User, UserPlus, AlertCircle, CheckCircle } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { ArrowLeft, Hash, Users, Play, User, UserPlus, AlertCircle, CheckCircle, Camera } from "lucide-react"
+import jsQR from "jsqr"
 import googleSheetsService from "../services/googleSheets"
 
 const JoinPage = () => {
   const navigate = useNavigate()
+  const { sessionId } = useParams()
   const [step, setStep] = useState(1)
   const [sessionData, setSessionData] = useState(null)
   const [formData, setFormData] = useState({
@@ -20,6 +22,79 @@ const JoinPage = () => {
   const [error, setError] = useState("")
   const [showConfirmation, setShowConfirmation] = useState(null)
   const [existingPlayerInfo, setExistingPlayerInfo] = useState(null)
+  const [showScanner, setShowScanner] = useState(false)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const streamRef = useRef(null)
+
+  // Pre-fill joining code from URL parameter
+  useEffect(() => {
+    if (sessionId) {
+      setFormData((prev) => ({ ...prev, joiningCode: sessionId.toUpperCase().slice(0, 6) }))
+      handleNext() // Automatically validate the sessionId
+    }
+  }, [sessionId])
+
+  // QR code scanner setup
+  useEffect(() => {
+    if (showScanner) {
+      const startScanner = async () => {
+        try {
+          streamRef.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+          videoRef.current.srcObject = streamRef.current
+          videoRef.current.play()
+          requestAnimationFrame(tick)
+        } catch (err) {
+          console.error("Error accessing camera:", err)
+          setError("Failed to access camera. Please allow camera permissions or enter the code manually.")
+          setShowScanner(false)
+        }
+      }
+
+      const tick = () => {
+        if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+          const canvas = canvasRef.current
+          const context = canvas.getContext("2d")
+          canvas.height = videoRef.current.videoHeight
+          canvas.width = videoRef.current.videoWidth
+          context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert",
+          })
+
+          if (code) {
+            const url = new URL(code.data)
+            const pathParts = url.pathname.split('/')
+            const sessionIdFromQR = pathParts[pathParts.length - 1] // Extract sessionId from /join/:sessionId
+            if (sessionIdFromQR) {
+              setFormData((prev) => ({ ...prev, joiningCode: sessionIdFromQR.toUpperCase().slice(0, 6) }))
+              stopScanner()
+              handleNext()
+              return
+            }
+          }
+        }
+        if (showScanner) {
+          requestAnimationFrame(tick)
+        }
+      }
+
+      startScanner()
+
+      return () => {
+        stopScanner()
+      }
+    }
+  }, [showScanner])
+
+  const stopScanner = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    setShowScanner(false)
+  }
 
   const handleNext = async () => {
     setError("")
@@ -47,7 +122,6 @@ const JoinPage = () => {
       setLoading(false)
     } else if (step === 2) {
       if (sessionData.playerMode === "teams") {
-        // Automatically proceed to team credentials for teams-only mode
         handleInputChange("joinMode", "existing_team")
         setStep(3)
       } else if (sessionData.playerMode === "both" && formData.joinMode) {
@@ -80,10 +154,8 @@ const JoinPage = () => {
     } else if (step === 4 && formData.playerName.trim()) {
       setLoading(true)
       try {
-        // Check if player name already exists
         const playerCheck = await googleSheetsService.checkPlayerExists(formData.joiningCode, formData.playerName)
         if (playerCheck.exists) {
-          // Get additional info about the existing player
           const playerWithTeam = await googleSheetsService.getPlayerWithTeamInfo(
             formData.joiningCode,
             formData.playerName,
@@ -103,7 +175,6 @@ const JoinPage = () => {
     } else if (step === 5 && formData.teamName.trim() && formData.password.trim()) {
       setLoading(true)
       try {
-        // Check if team name already exists
         const teamExists = await googleSheetsService.checkTeamExists(formData.joiningCode, formData.teamName)
         if (teamExists) {
           setShowConfirmation("team")
@@ -111,8 +182,7 @@ const JoinPage = () => {
           return
         }
 
-        // Create new team
-        await googleSheetsService.createTeam(formData.joiningCode, formData.teamName, formData.password)
+        await googleSheetsService.createTeam(formData.joiningCode, formData.teamName, formData.password, "player")
         setStep(4)
       } catch (error) {
         console.error("Error creating team:", error)
@@ -133,7 +203,6 @@ const JoinPage = () => {
 
       await googleSheetsService.createPlayer(formData.joiningCode, teamId, formData.playerName, formData.joinMode)
 
-      // Store player data in session storage
       sessionStorage.setItem(
         `player_${formData.joiningCode}`,
         JSON.stringify({
@@ -154,7 +223,6 @@ const JoinPage = () => {
   const handleConfirmation = async (confirmed) => {
     if (confirmed) {
       if (showConfirmation === "player") {
-        // Use existing player - just store in session and navigate
         sessionStorage.setItem(
           `player_${formData.joiningCode}`,
           JSON.stringify({
@@ -165,11 +233,9 @@ const JoinPage = () => {
         )
         navigate(`/game/${formData.joiningCode}`)
       } else if (showConfirmation === "team") {
-        // Use existing team
         setStep(4)
       }
     } else {
-      // Ask for different name
       if (showConfirmation === "player") {
         setError("Please choose a different player name.")
       } else if (showConfirmation === "team") {
@@ -193,7 +259,7 @@ const JoinPage = () => {
             <div className="text-center mb-8">
               <Hash className="w-16 h-16 text-blue-600 mx-auto mb-4" />
               <h2 className="text-3xl font-bold text-gray-800 mb-2">Enter Joining Code</h2>
-              <p className="text-gray-600">Get the 6-character code from your host</p>
+              <p className="text-gray-600">Get the 6-character code from your host or scan the QR code</p>
             </div>
             <div>
               <input
@@ -212,7 +278,26 @@ const JoinPage = () => {
                 }
                 maxLength="6"
               />
+              <button
+                onClick={() => setShowScanner(true)}
+                className="mt-4 flex items-center justify-center w-full py-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+              >
+                <Camera className="w-5 h-5 mr-2" />
+                Scan QR Code
+              </button>
             </div>
+            {showScanner && (
+              <div className="mt-4">
+                <video ref={videoRef} className="w-full rounded-lg" />
+                <canvas ref={canvasRef} className="hidden" />
+                <button
+                  onClick={stopScanner}
+                  className="mt-4 w-full py-3 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel Scanning
+                </button>
+              </div>
+            )}
           </div>
         )
 
@@ -266,7 +351,6 @@ const JoinPage = () => {
             </div>
           )
         } else {
-          // Teams only mode
           return (
             <div className="space-y-6">
               <div className="text-center mb-8">
@@ -447,8 +531,8 @@ const JoinPage = () => {
           <div className="mt-8 space-y-4">
             <button
               onClick={handleNext}
-              disabled={!canProceed() || loading}
-              className={`btn-primary w-full ${!canProceed() || loading ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={!canProceed() || loading || showScanner}
+              className={`btn-primary w-full ${!canProceed() || loading || showScanner ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {loading ? (
                 <div className="flex items-center justify-center">
@@ -463,7 +547,7 @@ const JoinPage = () => {
               )}
             </button>
 
-            {step > 1 && (
+            {step > 1 && !showScanner && (
               <button
                 onClick={() => setStep(step - 1)}
                 className="w-full py-3 text-gray-600 hover:text-gray-800 transition-colors"
@@ -475,7 +559,6 @@ const JoinPage = () => {
           </div>
         </div>
 
-        {/* Confirmation Modal */}
         {showConfirmation && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="card max-w-md w-full">
