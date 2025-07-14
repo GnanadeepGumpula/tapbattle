@@ -31,7 +31,7 @@ function App() {
           <Route path="/host-dashboard" element={<HostDashboard />} />
           <Route path="/host-interface/:sessionId" element={<HostInterface />} />
           <Route path="/game/:sessionId" element={<UserGamePage />} />
-          <Route path="*" element={<div>Not Found</div>} />
+          <Route path="*" element={<div>Not-Found</div>} />
         </Routes>
       </div>
     </Router>
