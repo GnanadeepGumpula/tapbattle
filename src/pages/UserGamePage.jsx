@@ -18,6 +18,7 @@ const UserGamePage = () => {
   const [loading, setLoading] = useState(true)
   const [currentRound, setCurrentRound] = useState(null)
   const [sessionNotFound, setSessionNotFound] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   // Use ref to track interval and prevent navigation during updates
   const intervalRef = useRef(null)
@@ -34,7 +35,7 @@ const UserGamePage = () => {
         if (!isUpdatingRef.current) {
           loadGameData(true) // Silent update
         }
-      }, 1000) // Changed from 2000ms to 1000ms for 1-second refresh
+      }, 1000) // 1-second refresh
     }
 
     return () => {
@@ -70,6 +71,17 @@ const UserGamePage = () => {
         if (!silent) {
           setSessionNotFound(true)
           setLoading(false)
+        } else {
+          console.warn("Session not found during silent update")
+        }
+        return
+      }
+
+      // Pause polling if session is completed
+      if (sessionData.status === "completed") {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
         }
         return
       }
@@ -81,18 +93,22 @@ const UserGamePage = () => {
 
       // Check if round changed
       if (currentRound !== null && sessionData.round !== currentRound) {
-        // Round changed, reset tap state
         setHasPressed(false)
         setPressTime(null)
         setMyPosition(null)
         console.log(`Round changed from ${currentRound} to ${sessionData.round}`)
       }
 
-      setSession(sessionData)
-      setCurrentRound(sessionData.round)
+      // Update state only if data has changed
+      if (JSON.stringify(session) !== JSON.stringify(sessionData)) {
+        setSession(sessionData)
+        setCurrentRound(sessionData.round)
+      }
 
       const taps = await googleSheetsService.getTapOrder(sessionId, sessionData.round)
-      setTapOrder(taps)
+      if (JSON.stringify(tapOrder) !== JSON.stringify(taps)) {
+        setTapOrder(taps)
+      }
 
       // Check if current player has tapped in this round
       const playerData = JSON.parse(sessionStorage.getItem(`player_${sessionId}`) || "{}")
@@ -103,16 +119,19 @@ const UserGamePage = () => {
         setPressTime(myTap.time)
         setMyPosition(taps.findIndex((tap) => tap.playerName === playerData.playerName) + 1)
       } else if (hasPressed && !myTap) {
-        // Player禁止: Player was reset due to round change
+        // Player was reset due to round change
         setHasPressed(false)
         setPressTime(null)
         setMyPosition(null)
       }
+
+      setLastUpdated(new Date().toLocaleTimeString())
     } catch (error) {
       console.error("Error loading game data:", error)
-      // Don't navigate away on error during silent updates
       if (!silent) {
         setSessionNotFound(true)
+      } else {
+        console.warn("Silent update failed, retrying on next interval")
       }
     }
 
@@ -215,7 +234,11 @@ const UserGamePage = () => {
             <p className="text-gray-600">{playerData.playerName}</p>
             {playerData.teamName && <p className="text-sm text-teal-600">Team: {playerData.teamName}</p>}
           </div>
-          <button onClick={() => navigate("/")} className="p-2 text-gray-600 hover:text-gray-800 transition-colors">
+          <button
+            onClick={() => navigate("/")}
+            disabled={isUpdatingRef.current}
+            className={`p-2 text-gray-600 hover:text-gray-800 transition-colors ${isUpdatingRef.current ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
             <Home className="w-5 h-5" />
           </button>
         </div>
@@ -239,6 +262,7 @@ const UserGamePage = () => {
               {playerData.teamName ? "Team" : "Solo"}
             </div>
           </div>
+          <div className="text-sm text-gray-500 mt-2">Last updated: {lastUpdated}</div>
         </div>
 
         <div className="card text-center mb-8">
@@ -262,7 +286,6 @@ const UserGamePage = () => {
             )}
           </button>
 
-          {/* Already Tapped Warning */}
           {showAlreadyTapped && (
             <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
               <div className="flex items-center justify-center text-orange-800">

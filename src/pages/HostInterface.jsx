@@ -40,11 +40,13 @@ const HostInterface = () => {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("taporder")
   const [isDeleting, setIsDeleting] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   // Use refs to track data without causing re-renders
   const lastUpdateRef = useRef(Date.now())
   const intervalRef = useRef(null)
   const qrCodeRef = useRef(null)
+  const isUpdatingRef = useRef(false)
 
   // Generate join link
   const joinLink = `${window.location.origin}/join/${sessionId}`
@@ -53,6 +55,8 @@ const HostInterface = () => {
   const loadAllData = useCallback(
     async (silent = false) => {
       try {
+        if (!silent) isUpdatingRef.current = true
+
         const hostUser = localStorage.getItem("hostUser")
         if (!hostUser) {
           navigate("/host-login")
@@ -61,13 +65,23 @@ const HostInterface = () => {
 
         const sessionData = await googleSheetsService.getSession(sessionId)
         if (!sessionData) {
-          if (!silent) setShowModeSelector(true)
-          if (!silent) setLoading(false)
+          if (!silent) {
+            setShowModeSelector(true)
+            setLoading(false)
+          } else {
+            console.warn("Session not found during silent update")
+          }
           return
         }
 
-        // Only update state if data actually changed
-        const currentTime = Date.now()
+        // Pause polling if session is completed
+        if (sessionData.status === "completed") {
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
+          }
+          return
+        }
 
         // Load all data in parallel
         const [taps, teamsData, playersData] = await Promise.all([
@@ -76,12 +90,13 @@ const HostInterface = () => {
           loadPlayers(),
         ])
 
-        // Update session data
+        // Update session data only if changed
         setSession((prevSession) => {
           if (
             !prevSession ||
             prevSession.round !== sessionData.round ||
-            prevSession.playerMode !== sessionData.playerMode
+            prevSession.playerMode !== sessionData.playerMode ||
+            JSON.stringify(prevSession) !== JSON.stringify(sessionData)
           ) {
             return sessionData
           }
@@ -125,13 +140,20 @@ const HostInterface = () => {
           })
         }
 
-        lastUpdateRef.current = currentTime
+        lastUpdateRef.current = Date.now()
+        setLastUpdated(new Date().toLocaleTimeString())
       } catch (error) {
         console.error("Error loading data:", error)
+        if (!silent) {
+          console.warn("Silent update failed, retrying on next interval")
+        }
       }
-      if (!silent) setLoading(false)
+      if (!silent) {
+        setLoading(false)
+        isUpdatingRef.current = false
+      }
     },
-    [sessionId, selectedTeam, navigate],
+    [sessionId, selectedTeam, navigate]
   )
 
   const loadTeams = async () => {
@@ -146,7 +168,7 @@ const HostInterface = () => {
           sessionId: row[1],
           teamName: row[2],
           password: row[3],
-          createdBy: row[4] || "host", // Default to "host" if not specified
+          createdBy: row[4] || "host",
           createdAt: row[5],
         }))
     } catch (error) {
@@ -185,7 +207,9 @@ const HostInterface = () => {
   useEffect(() => {
     if (!loading && !showModeSelector && !isDeleting) {
       intervalRef.current = setInterval(() => {
-        loadAllData(true) // Silent update
+        if (!isUpdatingRef.current) {
+          loadAllData(true) // Silent update
+        }
       }, 1000)
     }
 
@@ -267,21 +291,15 @@ const HostInterface = () => {
 
   const refreshRound = async () => {
     try {
-      setIsDeleting(true) // Pause updates during round change
+      setIsDeleting(true)
 
       const newRound = session.round + 1
-
-      // Clear ALL tap order data for this session first
       await googleSheetsService.clearTapOrder(sessionId, session.round)
-
-      // Then update the round
       await googleSheetsService.updateSessionRound(sessionId, newRound)
 
-      // Update local state immediately
       setSession((prev) => ({ ...prev, round: newRound }))
       setTapOrder([])
 
-      // Force refresh all data after a short delay
       setTimeout(async () => {
         await loadAllData()
         setIsDeleting(false)
@@ -340,14 +358,7 @@ const HostInterface = () => {
 
     try {
       setIsDeleting(true)
-      console.log(`Deleting team: ${teamId}`)
-
-      // First delete all players in this team
-      console.log("Removing all team members...")
       await googleSheetsService.deleteRowsByColumn("Players", "C", teamId)
-
-      // Then delete the team itself
-      console.log("Deleting team record...")
       await googleSheetsService.deleteRowsByColumn("Teams", "A", teamId)
 
       if (selectedTeam?.teamId === teamId) {
@@ -355,10 +366,8 @@ const HostInterface = () => {
         setTeamPlayersList([])
       }
 
-      console.log(`Team ${teamId} and all members deleted successfully`)
       await loadAllData()
       setIsDeleting(false)
-
       alert("Team and all members have been completely deleted.")
     } catch (error) {
       console.error("Error deleting team:", error)
@@ -374,29 +383,20 @@ const HostInterface = () => {
 
     try {
       setIsDeleting(true)
-      console.log(`Removing player: ${playerId}`)
-
-      // Delete the player record
       await googleSheetsService.deleteRowsByColumn("Players", "A", playerId)
 
-      // Also remove any tap records for this player in current session
-      console.log("Cleaning up player's tap records...")
       const response = await googleSheetsService.makeRequest("/values/TapOrder!A:G")
       const values = response.values || []
 
-      // Find and delete tap records for this player in this session
       for (let i = 1; i < values.length; i++) {
         const row = values[i]
         if (row[1] === sessionId && row[0].includes(playerId.split("_")[1])) {
-          // This is a tap record for this player in this session
           await googleSheetsService.deleteRowsByColumn("TapOrder", "A", row[0])
         }
       }
 
-      console.log(`Player ${playerId} and tap records removed successfully`)
       await loadAllData()
       setIsDeleting(false)
-
       alert("Player has been completely removed.")
     } catch (error) {
       console.error("Error removing player:", error)
@@ -466,7 +466,11 @@ const HostInterface = () => {
         <div className="card text-center">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Session Not Found</h2>
           <p className="text-gray-600 mb-6">The session could not be loaded.</p>
-          <button onClick={() => navigate("/host-dashboard")} className="btn-primary">
+          <button
+            onClick={() => navigate("/host-dashboard")}
+            disabled={isUpdatingRef.current}
+            className={`btn-secondary ${isUpdatingRef.current ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
             Back to Dashboard
           </button>
         </div>
@@ -486,11 +490,19 @@ const HostInterface = () => {
             <p className="text-gray-600 mt-2">Managing Session: {sessionId}</p>
           </div>
           <div className="flex space-x-4">
-            <button onClick={handleExportSession} className="btn-secondary">
+            <button
+              onClick={handleExportSession}
+              className={`btn-secondary ${isUpdatingRef.current ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={isUpdatingRef.current}
+            >
               <Download className="w-4 h-4 mr-2" />
               Export Data
             </button>
-            <button onClick={() => navigate("/host-dashboard")} className="btn-secondary">
+            <button
+              onClick={() => navigate("/host-dashboard")}
+              className={`btn-secondary ${isUpdatingRef.current ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={isUpdatingRef.current}
+            >
               Back to Dashboard
             </button>
           </div>
@@ -504,6 +516,7 @@ const HostInterface = () => {
               <button
                 onClick={() => setShowPlayerModeChange(true)}
                 className="flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                disabled={isUpdatingRef.current}
               >
                 <Edit className="w-4 h-4 mr-2" />
                 Change Mode
@@ -522,6 +535,7 @@ const HostInterface = () => {
                 <button
                   onClick={copyJoiningCode}
                   className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={isUpdatingRef.current}
                 >
                   <Copy className="w-4 h-4" />
                 </button>
@@ -561,6 +575,7 @@ const HostInterface = () => {
                     onClick={copyJoinLink}
                     className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     title="Copy Link"
+                    disabled={isUpdatingRef.current}
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -569,6 +584,7 @@ const HostInterface = () => {
                       onClick={shareJoinLink}
                       className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                       title="Share Link"
+                      disabled={isUpdatingRef.current}
                     >
                       <Share2 className="w-4 h-4" />
                     </button>
@@ -585,12 +601,14 @@ const HostInterface = () => {
                     onClick={downloadQRCode}
                     className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                     title="Download QR Code"
+                    disabled={isUpdatingRef.current}
                   >
                     <Download className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
+            <div className="text-sm text-gray-500 mt-2">Last updated: {lastUpdated}</div>
           </div>
 
           {/* Teams Only Mode Message */}
@@ -641,7 +659,11 @@ const HostInterface = () => {
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">Button Tap Order - Round {session.round}</h2>
-              <button onClick={refreshRound} className="flex items-center space-x-2 btn-accent" disabled={isDeleting}>
+              <button
+                onClick={refreshRound}
+                className={`flex items-center space-x-2 btn-accent ${isDeleting ? "opacity-50 cursor-not-allowed" : ""}`}
+                disabled={isDeleting || isUpdatingRef.current}
+              >
                 <RefreshCw className={`w-4 h-4 ${isDeleting ? "animate-spin" : ""}`} />
                 <span>{isDeleting ? "Starting..." : "New Round"}</span>
               </button>
@@ -689,6 +711,7 @@ const HostInterface = () => {
                 <button
                   onClick={() => setShowTeamCreator(!showTeamCreator)}
                   className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={isUpdatingRef.current}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Team
@@ -717,8 +740,8 @@ const HostInterface = () => {
                   <div className="flex space-x-4 mt-4">
                     <button
                       onClick={createTeam}
-                      className="btn-primary"
-                      disabled={isDeleting || !newTeam.name.trim() || !newTeam.password.trim()}
+                      className={`btn-primary ${isDeleting ? "opacity-50 cursor-not-allowed" : ""}`}
+                      disabled={isDeleting || !newTeam.name.trim() || !newTeam.password.trim() || isUpdatingRef.current}
                     >
                       {isDeleting ? "Creating..." : "Create Team"}
                     </button>
@@ -728,6 +751,7 @@ const HostInterface = () => {
                         setNewTeam({ name: "", password: "" })
                       }}
                       className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      disabled={isUpdatingRef.current}
                     >
                       Cancel
                     </button>
@@ -776,7 +800,7 @@ const HostInterface = () => {
                                 handleDeleteTeam(team.teamId)
                               }}
                               className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                              disabled={isDeleting}
+                              disabled={isDeleting || isUpdatingRef.current}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -803,9 +827,7 @@ const HostInterface = () => {
                       <div>
                         <h3 className="text-xl font-bold text-gray-800">{selectedTeam.teamName}</h3>
                         <p className="text-sm text-gray-500">
-                          {selectedTeam.createdBy === "player"
-                            ? "Player-set password"
-                            : `Password: `}
+                          {selectedTeam.createdBy === "player" ? "Player-set password" : `Password: `}
                           {selectedTeam.createdBy !== "player" && (
                             <span className="font-mono bg-gray-100 px-2 py-1 rounded">{selectedTeam.password}</span>
                           )}
@@ -842,14 +864,16 @@ const HostInterface = () => {
                                   <div className="text-sm text-gray-600">
                                     Joined: {new Date(player.createdAt).toLocaleDateString()}
                                   </div>
-                                  {index === 0 && <div className="text-xs text-blue-600 font-medium">Team Leader</div>}
+                                  {index === 0 && (
+                                    <div className="text-xs text-blue-600 font-medium">Team Leader</div>
+                                  )}
                                 </div>
                               </div>
                               <button
                                 onClick={() => handleRemovePlayer(player.playerId)}
                                 className="p-2 text-red-600 hover:text-red-800 transition-colors"
                                 title="Remove from Team"
-                                disabled={isDeleting}
+                                disabled={isDeleting || isUpdatingRef.current}
                               >
                                 <UserMinus className="w-4 h-4" />
                               </button>
@@ -879,9 +903,7 @@ const HostInterface = () => {
 
         {activeTab === "players" && (
           <div className="card">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Solo Players ({soloPlayers.length})
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Solo Players ({soloPlayers.length})</h3>
             {soloPlayers.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {soloPlayers.map((player) => (
@@ -902,7 +924,7 @@ const HostInterface = () => {
                         onClick={() => handleRemovePlayer(player.playerId)}
                         className="p-2 text-red-600 hover:text-red-800 transition-colors"
                         title="Remove Player"
-                        disabled={isDeleting}
+                        disabled={isDeleting || isUpdatingRef.current}
                       >
                         <UserMinus className="w-4 h-4" />
                       </button>
@@ -938,7 +960,7 @@ const HostInterface = () => {
                   className={`w-full p-3 rounded-lg border-2 transition-all ${
                     playerMode === "single" ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-blue-300"
                   }`}
-                  disabled={isDeleting}
+                  disabled={isDeleting || isUpdatingRef.current}
                 >
                   <User className="w-5 h-5 mx-auto mb-2 text-blue-600" />
                   <div className="font-semibold">Single Players Only</div>
@@ -949,7 +971,7 @@ const HostInterface = () => {
                   className={`w-full p-3 rounded-lg border-2 transition-all ${
                     playerMode === "teams" ? "border-teal-500 bg-teal-50" : "border-gray-200 hover:border-teal-300"
                   }`}
-                  disabled={isDeleting}
+                  disabled={isDeleting || isUpdatingRef.current}
                 >
                   <Users className="w-5 h-5 mx-auto mb-2 text-teal-600" />
                   <div className="font-semibold">Teams Only</div>
@@ -960,7 +982,7 @@ const HostInterface = () => {
                   className={`w-full p-3 rounded-lg border-2 transition-all ${
                     playerMode === "both" ? "border-purple-500 bg-purple-50" : "border-gray-200 hover:border-purple-300"
                   }`}
-                  disabled={isDeleting}
+                  disabled={isDeleting || isUpdatingRef.current}
                 >
                   <UserPlus className="w-5 h-5 mx-auto mb-2 text-purple-600" />
                   <div className="font-semibold">Mixed Mode</div>
@@ -970,7 +992,7 @@ const HostInterface = () => {
               <button
                 onClick={() => setShowPlayerModeChange(false)}
                 className="w-full py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                disabled={isDeleting}
+                disabled={isDeleting || isUpdatingRef.current}
               >
                 Cancel
               </button>
