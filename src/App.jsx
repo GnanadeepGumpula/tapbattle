@@ -25,6 +25,7 @@ function App() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/join" element={<JoinPage />} />
           <Route path="/join/:sessionId" element={<JoinPage />} />
           <Route path="/host-login" element={<HostLoginPage />} />
           <Route path="/host-dashboard" element={<HostDashboard />} />
