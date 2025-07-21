@@ -1,4 +1,3 @@
-import googleSheetsService from "./googleSheets"
 
 class DataExportService {
   // Export session data to CSV format

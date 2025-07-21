@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Hand, Trophy, Clock, Users, Home, User, AlertCircle } from "lucide-react"
-import googleSheetsService from "../services/googleSheets"
+import api from "../services/api"
 
 const UserGamePage = () => {
   const { sessionId } = useParams()
@@ -66,8 +66,8 @@ const UserGamePage = () => {
     try {
       if (!silent) isUpdatingRef.current = true
 
-      const sessionData = await googleSheetsService.getSession(sessionId)
-      if (!sessionData) {
+      const sessionResponse = await api.getSession(sessionId)
+      if (!sessionResponse.success || !sessionResponse.data) {
         if (!silent) {
           setSessionNotFound(true)
           setLoading(false)
@@ -76,6 +76,8 @@ const UserGamePage = () => {
         }
         return
       }
+
+      const sessionData = sessionResponse.data
 
       // Pause polling if session is completed
       if (sessionData.status === "completed") {
@@ -105,19 +107,19 @@ const UserGamePage = () => {
         setCurrentRound(sessionData.round)
       }
 
-      const taps = await googleSheetsService.getTapOrder(sessionId, sessionData.round)
-      if (JSON.stringify(tapOrder) !== JSON.stringify(taps)) {
-        setTapOrder(taps)
+      const tapsResponse = await api.getTapOrder(sessionId, sessionData.round)
+      if (tapsResponse.success && JSON.stringify(tapOrder) !== JSON.stringify(tapsResponse.taps)) {
+        setTapOrder(tapsResponse.taps)
       }
 
       // Check if current player has tapped in this round
       const playerData = JSON.parse(sessionStorage.getItem(`player_${sessionId}`) || "{}")
-      const myTap = taps.find((tap) => tap.playerName === playerData.playerName)
+      const myTap = tapsResponse.success && tapsResponse.taps.find((tap) => tap.playerName === playerData.playerName)
 
       if (myTap) {
         setHasPressed(true)
         setPressTime(myTap.time)
-        setMyPosition(taps.findIndex((tap) => tap.playerName === playerData.playerName) + 1)
+        setMyPosition(tapsResponse.taps.findIndex((tap) => tap.playerName === playerData.playerName) + 1)
       } else if (hasPressed && !myTap) {
         // Player was reset due to round change
         setHasPressed(false)
@@ -158,7 +160,10 @@ const UserGamePage = () => {
       setHasPressed(true)
       setPressTime(now.toLocaleTimeString())
 
-      await googleSheetsService.addTap(sessionId, playerData.playerName, playerData.teamName, session.round)
+      const response = await api.addTap(sessionId, playerData.playerName, playerData.teamName, session.round)
+      if (!response.success) {
+        throw new Error(response.error || "Failed to record tap")
+      }
 
       // Immediately update local state
       const newTap = {

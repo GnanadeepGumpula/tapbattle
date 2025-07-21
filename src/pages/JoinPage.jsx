@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Hash, Users, Play, User, UserPlus, AlertCircle, CheckCircle, Camera } from "lucide-react"
 import jsQR from "jsqr"
-import googleSheetsService from "../services/googleSheets"
+import api from "../services/api"
 
 const JoinPage = () => {
   const navigate = useNavigate()
@@ -68,6 +68,7 @@ const JoinPage = () => {
             const pathParts = url.pathname.split('/')
             const sessionIdFromQR = pathParts[pathParts.length - 1] // Extract sessionId from /join/:sessionId
             if (sessionIdFromQR) {
+              console.log("QR Code session ID:", sessionIdFromQR)
               setFormData((prev) => ({ ...prev, joiningCode: sessionIdFromQR.toUpperCase().slice(0, 6) }))
               stopScanner()
               handleNext()
@@ -102,22 +103,25 @@ const JoinPage = () => {
     if (step === 1 && formData.joiningCode.length === 6) {
       setLoading(true)
       try {
-        const sessionInfo = await googleSheetsService.getSession(formData.joiningCode)
-        if (sessionInfo) {
-          setSessionData(sessionInfo)
-          if (sessionInfo.playerMode === "single") {
+        const response = await api.getSession(formData.joiningCode)
+        console.log("getSession Response:", response)
+        if (response.success && response.data) {
+          console.log("Session data:", response.data)
+          setSessionData(response.data)
+          if (response.data.playerMode === "single") {
             setStep(4)
-          } else if (sessionInfo.playerMode === "teams") {
+          } else if (response.data.playerMode === "teams") {
             setStep(2)
           } else {
             setStep(2)
           }
         } else {
+          console.log("Invalid session response:", response)
           setError("Invalid joining code. Please check and try again.")
         }
       } catch (error) {
-        console.error("Error validating session:", error)
-        setError("Failed to validate joining code. Please try again.")
+        console.error("Error validating session:", error.message, error.response?.data)
+        setError(`Failed to validate joining code: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
       }
       setLoading(false)
     } else if (step === 2) {
@@ -136,57 +140,69 @@ const JoinPage = () => {
     } else if (step === 3 && formData.teamName.trim() && formData.password.trim()) {
       setLoading(true)
       try {
-        const isValid = await googleSheetsService.validateTeam(
-          formData.joiningCode,
-          formData.teamName,
-          formData.password,
-        )
-        if (isValid) {
+        console.log("Validating team:", { sessionId: formData.joiningCode, teamName: formData.teamName })
+        const response = await api.validateTeam(formData.joiningCode, formData.teamName, formData.password)
+        console.log("validateTeam Response:", response)
+        if (response.success && response.isValid) {
           setStep(4)
         } else {
           setError("Invalid team name or password. Please check and try again.")
         }
       } catch (error) {
-        console.error("Error validating team:", error)
-        setError("Failed to validate team credentials. Please try again.")
+        console.error("Error validating team:", error.message, error.response?.data)
+        setError(`Failed to validate team credentials: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
       }
       setLoading(false)
     } else if (step === 4 && formData.playerName.trim()) {
       setLoading(true)
       try {
-        const playerCheck = await googleSheetsService.checkPlayerExists(formData.joiningCode, formData.playerName)
-        if (playerCheck.exists) {
-          const playerWithTeam = await googleSheetsService.getPlayerWithTeamInfo(
-            formData.joiningCode,
-            formData.playerName,
-          )
-          setExistingPlayerInfo(playerWithTeam)
-          setShowConfirmation("player")
-          setLoading(false)
-          return
+        console.log("Checking player:", { sessionId: formData.joiningCode, playerName: formData.playerName })
+        const playerCheck = await api.checkPlayerExists(formData.joiningCode, formData.playerName)
+        console.log("checkPlayerExists Response:", playerCheck)
+        if (playerCheck.success && playerCheck.exists && playerCheck.exists.exists) {
+          const playerResponse = await api.getPlayerWithTeamInfo(formData.joiningCode, formData.playerName)
+          console.log("getPlayerWithTeamInfo Response:", playerResponse)
+          if (playerResponse.success && playerResponse.player) {
+            // Handle player data whether it's an array or object
+            const playerData = Array.isArray(playerResponse.player) ? playerResponse.player[0] : playerResponse.player
+            setExistingPlayerInfo(playerData)
+            setShowConfirmation("player")
+            setLoading(false)
+            return
+          } else {
+            setError("Failed to fetch existing player information. Please try again.")
+          }
         }
 
         await joinGame()
       } catch (error) {
-        console.error("Error checking player:", error)
-        setError("Failed to join game. Please try again.")
+        console.error("Error checking player:", error.message, error.response?.data)
+        setError(`Failed to join game: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
         setLoading(false)
       }
     } else if (step === 5 && formData.teamName.trim() && formData.password.trim()) {
       setLoading(true)
       try {
-        const teamExists = await googleSheetsService.checkTeamExists(formData.joiningCode, formData.teamName)
-        if (teamExists) {
+        console.log("Checking team exists:", { sessionId: formData.joiningCode, teamName: formData.teamName })
+        const teamCheck = await api.checkTeamExists(formData.joiningCode, formData.teamName)
+        console.log("checkTeamExists Response:", teamCheck)
+        if (teamCheck.success && teamCheck.exists) {
           setShowConfirmation("team")
           setLoading(false)
           return
         }
 
-        await googleSheetsService.createTeam(formData.joiningCode, formData.teamName, formData.password, "player")
-        setStep(4)
+        console.log("Creating team:", { sessionId: formData.joiningCode, teamName: formData.teamName })
+        const createTeamResponse = await api.createTeam(formData.joiningCode, formData.teamName, formData.password, "player")
+        console.log("createTeam Response:", createTeamResponse)
+        if (createTeamResponse.success) {
+          setStep(4)
+        } else {
+          throw new Error(createTeamResponse.error || "Failed to create team")
+        }
       } catch (error) {
-        console.error("Error creating team:", error)
-        setError("Failed to create team. Please try again.")
+        console.error("Error creating team:", error.message, error.response?.data)
+        setError(`Failed to create team: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
       }
       setLoading(false)
     }
@@ -197,11 +213,22 @@ const JoinPage = () => {
       let teamId = null
 
       if (formData.joinMode !== "single" && formData.teamName) {
-        const team = await googleSheetsService.getTeam(formData.joiningCode, formData.teamName)
-        teamId = team?.teamId
+        console.log("Fetching team:", { sessionId: formData.joiningCode, teamName: formData.teamName })
+        const teamResponse = await api.getTeam(formData.joiningCode, formData.teamName)
+        console.log("getTeam Response:", teamResponse)
+        if (teamResponse.success && teamResponse.team) {
+          teamId = teamResponse.team.teamId
+        } else {
+          throw newError(teamResponse.error || "Team not found")
+        }
       }
 
-      await googleSheetsService.createPlayer(formData.joiningCode, teamId, formData.playerName, formData.joinMode)
+      console.log("Creating player:", { sessionId: formData.joiningCode, teamId, playerName: formData.playerName, joinMode: formData.joinMode })
+      const createPlayerResponse = await api.createPlayer(formData.joiningCode, teamId, formData.playerName, formData.joinMode)
+      console.log("createPlayer Response:", createPlayerResponse)
+      if (!createPlayerResponse.success) {
+        throw new Error(createPlayerResponse.error || "Failed to create player")
+      }
 
       sessionStorage.setItem(
         `player_${formData.joiningCode}`,
@@ -214,8 +241,8 @@ const JoinPage = () => {
 
       navigate(`/game/${formData.joiningCode}`)
     } catch (error) {
-      console.error("Error joining game:", error)
-      setError("Failed to join game. Please try again.")
+      console.error("Error joining game:", error.message, error.response?.data)
+      setError(`Failed to join game: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
     }
     setLoading(false)
   }
@@ -331,7 +358,7 @@ const JoinPage = () => {
                   }`}
                 >
                   <Users className="w-6 h-6 text-teal-600 mx-auto mb-2" />
-                  <div className="font-semibold text-gray-800">Join Existing Team</div>
+ vagas                  <div className="font-semibold text-gray-800">Join Existing Team</div>
                 </button>
                 <button
                   onClick={() => {
@@ -519,6 +546,7 @@ const JoinPage = () => {
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center text-red-800">
+                seven                <AlertCircle className="w-5 h-5 mr-2" />
                 <AlertCircle className="w-5 h-5 mr-2" />
                 <span className="font-semibold">Error</span>
               </div>
@@ -531,8 +559,8 @@ const JoinPage = () => {
           <div className="mt-8 space-y-4">
             <button
               onClick={handleNext}
-              disabled={!canProceed() || loading || showScanner}
               className={`btn-primary w-full ${!canProceed() || loading || showScanner ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={!canProceed() || loading || showScanner}
             >
               {loading ? (
                 <div className="flex items-center justify-center">

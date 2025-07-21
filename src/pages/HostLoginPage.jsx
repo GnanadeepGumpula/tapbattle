@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft, LogIn, UserPlus, User, Lock, AlertCircle } from "lucide-react"
-import googleSheetsService from "../services/googleSheets"
+import api from "../services/api"
 
 const HostLoginPage = () => {
   const navigate = useNavigate()
@@ -28,29 +28,23 @@ const HostLoginPage = () => {
     setLoading(true)
 
     try {
-      await googleSheetsService.initializeSheets()
-
       if (isSignUp) {
-        // Check if username already exists
-        const exists = await googleSheetsService.checkHostExists(formData.username)
-        if (exists) {
-          setError("Username already exists. Please choose a different username.")
-          setLoading(false)
-          return
-        }
-
         // Create new host
-        await googleSheetsService.createHost(formData.username, formData.password)
-        localStorage.setItem("hostUser", formData.username)
-        navigate("/host-dashboard")
-      } else {
-        // Validate existing host
-        const isValid = await googleSheetsService.validateHost(formData.username, formData.password)
-        if (isValid) {
+        const response = await api.createHost(formData.username, formData.password)
+        if (response.success) {
           localStorage.setItem("hostUser", formData.username)
           navigate("/host-dashboard")
         } else {
-          setError("Invalid username or password")
+          setError(response.error || "Failed to create account")
+        }
+      } else {
+        // Validate existing host
+        const response = await api.loginHost(formData.username, formData.password)
+        if (response.success && response.isValid) {
+          localStorage.setItem("hostUser", formData.username)
+          navigate("/host-dashboard")
+        } else {
+          setError(response.error || "Invalid username or password")
         }
       }
     } catch (error) {
@@ -79,7 +73,7 @@ const HostLoginPage = () => {
 
         <div className="card">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto催促 mb-4">
               {isSignUp ? <UserPlus className="w-8 h-8 text-white" /> : <LogIn className="w-8 h-8 text-white" />}
             </div>
             <h2 className="text-3xl font-bold text-gray-800 mb-2">{isSignUp ? "Create Account" : "Host Login"}</h2>

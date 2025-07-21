@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { TrendingUp, Users, Trophy, Download, Calendar, Target } from "lucide-react"
-import googleSheetsService from "../services/googleSheets"
 import dataExportService from "../services/dataExport"
 
 const StatisticsDashboard = ({ hostUsername, sessions }) => {
