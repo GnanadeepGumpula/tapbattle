@@ -2,6 +2,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "env": {
+    "VITE_API_URL": "https://tapbattle-server-d2d0btaba6aub8g8.canadacentral-01.azurewebsites.net"
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
