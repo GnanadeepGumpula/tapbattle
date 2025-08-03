@@ -1,6 +1,19 @@
 import axios from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // Default to localhost if not specified
+// More robust environment detection for production
+const getBaseURL = () => {
+  // Check if we're in production and VITE_API_URL is not set
+  if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+    return 'https://tapbattle-server-d2d0btaba6aub8g8.canadacentral-01.azurewebsites.net';
+  }
+  
+  // Use environment variable or default to localhost for development
+  return import.meta.env.VITE_API_URL || 'http://localhost:3000';
+};
+
+const BASE_URL = getBaseURL();
+
+console.log('API Base URL:', BASE_URL); // Debug log to check what URL is being used
 
 const api = {
   /* ---------------- HOST ROUTES ---------------- */
