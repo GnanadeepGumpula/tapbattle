@@ -8,7 +8,14 @@ const getBaseURL = () => {
   }
   
   // Use environment variable or default to localhost for development
-  return import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  
+  // Ensure the URL has a protocol
+  if (envUrl && !envUrl.startsWith('http://') && !envUrl.startsWith('https://')) {
+    return `https://${envUrl}`;
+  }
+  
+  return envUrl;
 };
 
 const BASE_URL = getBaseURL();
