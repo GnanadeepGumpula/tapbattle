@@ -200,21 +200,25 @@ const UserGamePage = () => {
   const getRankColor = (position) => {
     switch (position) {
       case 1:
-        return "text-yellow-600"
+        return "text-yellow-500"
       case 2:
-        return "text-gray-600"
+        return "text-gray-400"
       case 3:
-        return "text-orange-600"
+        return "text-orange-500"
       default:
-        return "text-blue-600"
+        return "text-blue-500"
     }
   }
 
   const getRankIcon = (position) => {
-    if (position <= 3) {
-      return <Trophy className={`w-6 h-6 ${getRankColor(position)}`} />
+    if (position === 1) {
+      return <Trophy className="w-6 h-6 text-yellow-500 animate-pulse" />
+    } else if (position === 2) {
+      return <Trophy className="w-6 h-6 text-gray-400" />
+    } else if (position === 3) {
+      return <Trophy className="w-6 h-6 text-orange-500" />
     }
-    return <Users className="w-6 h-6 text-blue-600" />
+    return <Users className="w-6 h-6 text-blue-500" />
   }
 
   if (loading) {
@@ -378,20 +382,110 @@ const UserGamePage = () => {
           )}
 
           {hasPressed && !showAlreadyTapped && (
-            <div className="mt-6 p-4 bg-neon-green/20 rounded-lg animate-fade-in">
-              <div className="flex items-center justify-center mb-2">
-                {getRankIcon(myPosition)}
-                <span className={`ml-2 text-2xl font-extrabold text-neon-green animate-bounce`}> 
-                  {myPosition === 1
-                    ? "1st Place!"
+            <div className={`mt-6 p-6 rounded-2xl shadow-xl animate-fade-in relative overflow-hidden ${
+              myPosition === 1
+                ? theme === 'dark'
+                  ? 'bg-gradient-to-br from-yellow-400/20 to-amber-500/20 border-2 border-yellow-400/50'
+                  : 'bg-gradient-to-br from-yellow-100 to-amber-100 border-2 border-yellow-400'
+                : myPosition === 2
+                  ? theme === 'dark'
+                    ? 'bg-gradient-to-br from-gray-300/20 to-slate-400/20 border-2 border-gray-300/50'
+                    : 'bg-gradient-to-br from-gray-100 to-slate-100 border-2 border-gray-400'
+                  : myPosition === 3
+                    ? theme === 'dark'
+                      ? 'bg-gradient-to-br from-orange-400/20 to-amber-600/20 border-2 border-orange-400/50'
+                      : 'bg-gradient-to-br from-orange-100 to-amber-100 border-2 border-orange-400'
+                    : theme === 'dark'
+                      ? 'bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-2 border-indigo-400/50'
+                      : 'bg-gradient-to-br from-blue-100 to-purple-100 border-2 border-blue-400'
+            }`}>
+              {/* Sparkling effect for 1st place */}
+              {myPosition === 1 && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-2 left-4 w-2 h-2 bg-yellow-300 rounded-full animate-ping"></div>
+                  <div className="absolute top-6 right-6 w-1 h-1 bg-amber-400 rounded-full animate-pulse"></div>
+                  <div className="absolute bottom-4 left-8 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce"></div>
+                  <div className="absolute bottom-8 right-4 w-1 h-1 bg-amber-300 rounded-full animate-ping"></div>
+                  <div className="absolute top-1/2 left-1/4 w-1 h-1 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <div className="absolute top-1/3 right-1/3 w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce"></div>
+                </div>
+              )}
+              
+              <div className="flex items-center justify-center mb-3 relative z-10">
+                <div className={`p-2 rounded-full ${
+                  myPosition === 1
+                    ? 'bg-yellow-400 text-yellow-900 animate-pulse'
                     : myPosition === 2
-                      ? "2nd Place!"
+                      ? 'bg-gray-400 text-gray-900'
                       : myPosition === 3
-                        ? "3rd Place!"
+                        ? 'bg-orange-400 text-orange-900'
+                        : theme === 'dark'
+                          ? 'bg-indigo-400 text-indigo-900'
+                          : 'bg-blue-400 text-blue-900'
+                }`}>
+                  {getRankIcon(myPosition)}
+                </div>
+                <span className={`ml-3 text-3xl font-extrabold tracking-wide ${
+                  myPosition === 1
+                    ? theme === 'dark'
+                      ? 'text-yellow-300 animate-pulse'
+                      : 'text-yellow-600 animate-pulse'
+                    : myPosition === 2
+                      ? theme === 'dark'
+                        ? 'text-gray-300'
+                        : 'text-gray-600'
+                      : myPosition === 3
+                        ? theme === 'dark'
+                          ? 'text-orange-300'
+                          : 'text-orange-600'
+                        : theme === 'dark'
+                          ? 'text-indigo-300'
+                          : 'text-blue-600'
+                } ${myPosition <= 3 ? 'drop-shadow-lg' : ''}`}> 
+                  {myPosition === 1
+                    ? "🏆 1st Place! 🏆"
+                    : myPosition === 2
+                      ? "🥈 2nd Place! 🥈"
+                      : myPosition === 3
+                        ? "🥉 3rd Place! 🥉"
                         : `${myPosition}th Place`}
                 </span>
               </div>
-              <div className="text-sm text-electric-blue">Tapped at {pressTime}</div>
+              
+              <div className={`text-center relative z-10 ${
+                myPosition === 1
+                  ? theme === 'dark'
+                    ? 'text-yellow-200'
+                    : 'text-yellow-700'
+                  : myPosition === 2
+                    ? theme === 'dark'
+                      ? 'text-gray-200'
+                      : 'text-gray-700'
+                    : myPosition === 3
+                      ? theme === 'dark'
+                        ? 'text-orange-200'
+                        : 'text-orange-700'
+                      : theme === 'dark'
+                        ? 'text-indigo-200'
+                        : 'text-blue-700'
+              }`}>
+                <div className="text-sm font-medium">⏰ Tapped at {pressTime}</div>
+                {myPosition === 1 && (
+                  <div className="text-xs mt-1 font-semibold animate-bounce">
+                    🎉 Fastest Fingers! 🎉
+                  </div>
+                )}
+                {myPosition === 2 && (
+                  <div className="text-xs mt-1 font-medium">
+                    Great reflexes! Almost there! 💪
+                  </div>
+                )}
+                {myPosition === 3 && (
+                  <div className="text-xs mt-1 font-medium">
+                    Solid performance! Keep it up! 👏
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -409,51 +503,91 @@ const UserGamePage = () => {
             {tapOrder.slice(0, 10).map((tap, index) => (
               <div
                 key={index}
-                className={`flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl gap-2 ${
+                className={`flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl gap-2 relative overflow-hidden ${
                   tap.playerName === playerData.playerName 
                     ? theme === 'dark' 
                       ? "bg-indigo-500/20 border-2 border-purple-500" 
                       : "bg-blue-100 border-2 border-blue-500"
-                    : theme === 'dark'
-                      ? "bg-indigo-500/10"
-                      : "bg-gray-50"
+                    : index === 0  // 1st place
+                      ? theme === 'dark'
+                        ? "bg-gradient-to-r from-yellow-400/20 to-amber-500/20 border border-yellow-400/30"
+                        : "bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-300"
+                      : index === 1  // 2nd place
+                        ? theme === 'dark'
+                          ? "bg-gradient-to-r from-gray-300/20 to-slate-400/20 border border-gray-300/30"
+                          : "bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-300"
+                        : index === 2  // 3rd place
+                          ? theme === 'dark'
+                            ? "bg-gradient-to-r from-orange-400/20 to-amber-600/20 border border-orange-400/30"
+                            : "bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-300"
+                          : theme === 'dark'
+                            ? "bg-indigo-500/10"
+                            : "bg-gray-50"
                 } animate-fade-in`}
               >
+                {/* Sparkle effects for top 3 */}
+                {index === 0 && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-1 right-2 w-1 h-1 bg-yellow-400 rounded-full animate-ping"></div>
+                    <div className="absolute bottom-2 left-3 w-1 h-1 bg-amber-400 rounded-full animate-pulse"></div>
+                    <div className="absolute top-1/2 right-1/4 w-0.5 h-0.5 bg-yellow-300 rounded-full animate-bounce"></div>
+                  </div>
+                )}
+                
                 <div className="flex items-center space-x-3">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center text-xl font-extrabold shadow-lg ${
                       index === 0
-                        ? `${theme === 'dark' ? 'bg-indigo-500' : 'bg-blue-500'} text-white animate-bounce`
+                        ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-white animate-pulse shadow-yellow-400/50"
                         : index === 1
-                          ? `${theme === 'dark' ? 'bg-purple-500' : 'bg-purple-500'} text-white`
+                          ? "bg-gradient-to-br from-gray-300 to-slate-400 text-white shadow-gray-400/50"
                           : index === 2
-                            ? `${theme === 'dark' ? 'bg-indigo-600' : 'bg-blue-600'} text-white`
+                            ? "bg-gradient-to-br from-orange-400 to-amber-500 text-white shadow-orange-400/50"
                             : theme === 'dark'
                               ? 'bg-gray-800 text-gray-300'
                               : 'bg-gray-200 text-gray-600'
                     }`}
                   >
-                    {index + 1}
+                    {index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : index + 1}
                   </div>
                   <div>
                     <span
                       className={`font-bold ${
                         tap.playerName === playerData?.playerName 
                           ? theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
-                          : theme === 'dark' ? 'text-indigo-200' : 'text-gray-700'
+                          : index === 0
+                            ? theme === 'dark' ? 'text-yellow-300' : 'text-yellow-700'
+                            : index === 1
+                              ? theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                              : index === 2
+                                ? theme === 'dark' ? 'text-orange-300' : 'text-orange-700'
+                                : theme === 'dark' ? 'text-indigo-200' : 'text-gray-700'
                       }`}
                     >
                       {tap.playerName}
+                      {index === 0 && " 👑"}
                     </span>
                     {tap.teamName && (
                       <div className={`text-xs ${
-                        theme === 'dark' ? 'text-indigo-400' : 'text-blue-500'
+                        index === 0
+                          ? theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'
+                          : index === 1
+                            ? theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                            : index === 2
+                              ? theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
+                              : theme === 'dark' ? 'text-indigo-400' : 'text-blue-500'
                       }`}>Team: {tap.teamName}</div>
                     )}
                   </div>
                 </div>
-                <span className={`text-sm ${
-                  theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                <span className={`text-sm font-medium ${
+                  index === 0
+                    ? theme === 'dark' ? 'text-yellow-300' : 'text-yellow-700'
+                    : index === 1
+                      ? theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                      : index === 2
+                        ? theme === 'dark' ? 'text-orange-300' : 'text-orange-700'
+                        : theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
                 }`}>{tap.time}</span>
               </div>
             ))}

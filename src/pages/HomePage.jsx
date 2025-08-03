@@ -12,18 +12,18 @@ const HomePage = () => {
     <PageLayout>
 
         {/* Hero Section */}
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-6">
+        <div className="text-center mb-8 sm:mb-12">
+          <div className="flex justify-center mb-4 sm:mb-6">
             <div className="relative">
-              <Zap className={`w-24 h-24 ${theme === 'dark' ? 'text-indigo-500' : 'text-blue-500'} animate-pulse filter ${theme === 'dark' ? 'drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`} />
-              <div className={`absolute -top-2 -right-2 w-8 h-8 ${theme === 'dark' ? 'bg-purple-500 border-indigo-400' : 'bg-purple-400 border-blue-500'} rounded-full animate-bounce-slow border-4`}></div>
+              <Zap className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 ${theme === 'dark' ? 'text-indigo-500' : 'text-blue-500'} animate-pulse filter ${theme === 'dark' ? 'drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]'}`} />
+              <div className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-6 h-6 sm:w-8 sm:h-8 ${theme === 'dark' ? 'bg-purple-500 border-indigo-400' : 'bg-purple-400 border-blue-500'} rounded-full animate-bounce-slow border-2 sm:border-4`}></div>
             </div>
           </div>
-          <h1 className={`text-7xl font-extrabold mb-4 uppercase tracking-widest flex justify-center items-center gap-2`}>
+          <h1 className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-3 sm:mb-4 uppercase tracking-wide sm:tracking-widest flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-2`}>
             <span className={`${theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'} filter drop-shadow-[0_0_15px_rgba(99,102,241,0.3)]`}>Tap</span>
             <span className={`${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'} filter drop-shadow-[0_0_15px_rgba(167,139,250,0.3)]`}>Battle</span>
           </h1>
-          <p className={`text-2xl mb-8 font-medium ${theme === 'dark' ? 'text-indigo-200' : 'text-gray-700'}`}>Host interactive quizzes and games with <span className={theme === 'dark' ? 'text-purple-400 font-bold' : 'text-purple-600 font-bold'}>real-time</span> participation</p>
+          <p className={`text-lg sm:text-xl md:text-2xl mb-6 sm:mb-8 font-medium px-4 sm:px-0 ${theme === 'dark' ? 'text-indigo-200' : 'text-gray-700'}`}>Host interactive quizzes and games with <span className={theme === 'dark' ? 'text-purple-400 font-bold' : 'text-purple-600 font-bold'}>real-time</span> participation</p>
         </div>
 
         {/* Main Actions */}
