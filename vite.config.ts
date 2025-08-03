@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: '/tapbattle/', // Set the base path for GitHub Pages
+  // Remove base path for Vercel deployment
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'], // Keep this if you're manually handling lucide-react
