@@ -17,8 +17,11 @@ import {
 import api from "../services/api"
 import StatisticsDashboard from "../components/StatisticsDashboard"
 import dataExportService from "../services/dataExport"
+import { useTheme } from '../contexts/ThemeContext'
+import PageLayout from '../components/PageLayout'
 
 const HostDashboard = () => {
+  const { theme } = useTheme()
   const navigate = useNavigate()
   const [hostUser, setHostUser] = useState("")
   const [previousSessions, setPreviousSessions] = useState([])
@@ -161,60 +164,100 @@ const HostDashboard = () => {
       </div>
     )
   }
-
+  
   return (
-    <div className="min-h-screen p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto">
+    <PageLayout>
+      <div className="w-full max-w-6xl mx-auto">
         <div className="flex flex-row items-center justify-between mb-6 sm:mb-8 space-x-2 sm:space-x-4">
           <div className="flex items-center space-x-2 sm:space-x-3">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Host Dashboard</h1>
-            <p className="text-gray-600 text-xs sm:text-sm">Welcome, {hostUser}!</p>
+            <h1 className={`text-4xl font-extrabold mb-2 ${
+              theme === 'dark'
+                ? 'text-indigo-400 filter drop-shadow-[0_0_15px_rgba(99,102,241,0.3)]'
+                : 'text-blue-600 filter drop-shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+            }`}>Host Dashboard</h1>
+            <p className={`text-lg font-medium ${
+              theme === 'dark' ? 'text-indigo-200' : 'text-gray-700'
+            }`}>Welcome, <span className={theme === 'dark' ? 'text-purple-400 font-bold' : 'text-purple-600 font-bold'}>{hostUser}</span>!</p>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-3">
             <button
               onClick={() => setShowDeleteAccount(true)}
-              className="flex items-center text-red-600 hover:text-red-800 transition-colors text-xs sm:text-sm py-1 px-2 sm:px-3 rounded-md"
+              className={`flex items-center transition-colors text-xs sm:text-sm py-1 px-2 sm:px-3 rounded-md ${
+                theme === 'dark'
+                  ? 'text-red-400 hover:text-red-300'
+                  : 'text-red-600 hover:text-red-800'
+              }`}
               disabled={deleting}
             >
-              <Trash2 className="w-4 h-4 mr-1 sm:mr-2" />
+              <Trash2 className="w-4 h-4 mr-1 sm:mr-2 animate-pulse" />
               Delete
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center text-gray-600 hover:text-gray-800 transition-colors text-xs sm:text-sm py-1 px-2 sm:px-3 rounded-md"
+              className={`flex items-center transition-colors text-xs sm:text-sm py-1 px-2 sm:px-3 rounded-md ${
+                theme === 'dark'
+                  ? 'text-indigo-400 hover:text-indigo-300'
+                  : 'text-blue-600 hover:text-blue-800'
+              }`}
             >
-              <LogOut className="w-4 h-4 mr-1 sm:mr-2" />
+              <LogOut className="w-4 h-4 mr-1 sm:mr-2 animate-bounce" />
               Logout
             </button>
           </div>
         </div>
 
         {/* Storage Management Message */}
-        <div className="card mb-6 sm:mb-8 bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500">
+        <div className={`p-6 rounded-xl border-l-4 mb-6 sm:mb-8 ${
+          theme === 'dark'
+            ? 'bg-white/5 border-indigo-500'
+            : 'bg-white/60 border-blue-500'
+        }`}>
           <div className="flex items-start space-x-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+              theme === 'dark'
+                ? 'bg-indigo-500/20'
+                : 'bg-blue-100'
+            }`}>
+              <AlertCircle className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+              }`} />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2">💾 Smart Storage Management</h3>
-              <p className="text-gray-700 mb-2 text-sm sm:text-base">
+              <h3 className={`text-base sm:text-lg font-semibold mb-2 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-800'
+              }`}>💾 Smart Storage Management</h3>
+              <p className={`mb-2 text-sm sm:text-base ${
+                theme === 'dark' ? 'text-indigo-200' : 'text-gray-700'
+              }`}>
                 <strong>"Clean Data, Clear Mind - Optimize Your Storage, Maximize Your Performance!"</strong>
               </p>
-              <p className="text-xs sm:text-sm text-gray-600">
+              <p className={`text-xs sm:text-sm ${
+                theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'
+              }`}>
                 Regularly delete unused sessions and player data to maintain optimal performance. Clean storage means
                 faster loading times and better user experience.
-                <span className="font-medium text-blue-600"> Remember: Organized data = Organized success!</span>
+                <span className={`font-medium ${
+                  theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                }`}> Remember: Organized data = Organized success!</span>
               </p>
             </div>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex space-x-1 mb-6 sm:mb-8 bg-gray-100 p-1 rounded-lg">
+        <div className={`flex space-x-1 mb-6 sm:mb-8 p-1 rounded-lg ${
+          theme === 'dark' ? 'bg-white/5' : 'bg-white/60'
+        }`}>
           <button
             onClick={() => setActiveTab("overview")}
             className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === "overview" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600 hover:text-gray-800"
+              activeTab === "overview" 
+                ? theme === 'dark'
+                  ? 'bg-indigo-500/20 text-indigo-400'
+                  : 'bg-white text-blue-600 shadow-sm'
+                : theme === 'dark'
+                  ? 'text-indigo-300 hover:text-indigo-200'
+                  : 'text-gray-600 hover:text-gray-800'
             }`}
           >
             Overview
@@ -222,7 +265,13 @@ const HostDashboard = () => {
           <button
             onClick={() => setActiveTab("statistics")}
             className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === "statistics" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600 hover:text-gray-800"
+              activeTab === "statistics" 
+                ? theme === 'dark'
+                  ? 'bg-indigo-500/20 text-indigo-400'
+                  : 'bg-white text-blue-600 shadow-sm'
+                : theme === 'dark'
+                  ? 'text-indigo-300 hover:text-indigo-200'
+                  : 'text-gray-600 hover:text-gray-800'
             }`}
           >
             Statistics
@@ -234,38 +283,74 @@ const HostDashboard = () => {
           <>
             <div className="grid md:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
               <div
-                className="card hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
+                className={`p-8 rounded-3xl shadow-2xl backdrop-blur-md border-2 transition-all duration-300 cursor-pointer transform hover:-translate-y-2 ${
+                  theme === 'dark'
+                    ? 'bg-white/5 border-indigo-500/30 hover:bg-white/10'
+                    : 'bg-white/60 border-blue-300 hover:bg-white/80'
+                }`}
                 onClick={createNewSession}
               >
                 <div className="text-center">
-                  <Plus className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600 mx-auto mb-4" />
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">Create New Session</h2>
-                  <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Start a fresh quiz session with a new joining code</p>
-                  <button className="btn-primary w-full text-sm sm:text-base py-2 sm:py-3">Create Session</button>
+                  <Plus className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 ${
+                    theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+                  }`} />
+                  <h2 className={`text-xl sm:text-2xl font-bold mb-2 ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-800'
+                  }`}>Create New Session</h2>
+                  <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${
+                    theme === 'dark' ? 'text-indigo-200' : 'text-gray-600'
+                  }`}>Start a fresh quiz session with a new joining code</p>
+                  <button className={`w-full text-sm sm:text-base py-2 sm:py-3 rounded-xl font-bold text-white transition-all ${
+                    theme === 'dark'
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500'
+                      : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400'
+                  }`}>Create Session</button>
                 </div>
               </div>
 
-              <div className="card">
+              <div className={`p-8 rounded-3xl shadow-2xl backdrop-blur-md border-2 ${
+                theme === 'dark'
+                  ? 'bg-white/5 border-purple-500/30'
+                  : 'bg-white/60 border-purple-300'
+              }`}>
                 <div className="text-center">
-                  <History className="w-12 h-12 sm:w-16 sm:h-16 text-teal-600 mx-auto mb-4" />
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">Previous Sessions</h2>
-                  <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Continue with your existing sessions</p>
+                  <History className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 ${
+                    theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                  }`} />
+                  <h2 className={`text-xl sm:text-2xl font-bold mb-2 ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-800'
+                  }`}>Previous Sessions</h2>
+                  <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${
+                    theme === 'dark' ? 'text-indigo-200' : 'text-gray-600'
+                  }`}>Continue with your existing sessions</p>
                   {previousSessions.length > 0 ? (
                     <div className="space-y-2">
                       {previousSessions.slice(0, 3).map((session) => (
                         <div
                           key={session.sessionId}
-                          className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                          className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                            theme === 'dark'
+                              ? 'bg-white/5 hover:bg-white/10'
+                              : 'bg-white/40 hover:bg-white/60'
+                          }`}
                         >
                           <button onClick={() => openPreviousSession(session.sessionId)} className="flex-1 text-left">
                             <div className="flex justify-between items-center">
-                              <span className="font-semibold text-sm sm:text-base">{session.sessionId}</span>
-                              <span className="text-xs sm:text-sm text-gray-500">Round {session.round}</span>
+                              <span className={`font-semibold text-sm sm:text-base ${
+                                theme === 'dark' ? 'text-indigo-300' : 'text-gray-800'
+                              }`}>{session.sessionId}</span>
+                              <span className={`text-xs sm:text-sm ${
+                                theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+                              }`}>Round {session.round}</span>
                             </div>
                           </button>
                           <button
                             onClick={() => confirmDelete(session.sessionId)}
-                            className="p-2 text-red-600 hover:text-red-800 transition-colors ml-2"
+                            className={`p-2 transition-colors ml-2 ${
+                              theme === 'dark'
+                                ? 'text-red-400 hover:text-red-300'
+                                : 'text-red-600 hover:text-red-800'
+                            }`}
                             disabled={deleting}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -273,11 +358,15 @@ const HostDashboard = () => {
                         </div>
                       ))}
                       {previousSessions.length > 3 && (
-                        <p className="text-xs sm:text-sm text-gray-500 mt-2">+{previousSessions.length - 3} more sessions</p>
+                        <p className={`text-xs sm:text-sm mt-2 ${
+                          theme === 'dark' ? 'text-indigo-300/60' : 'text-gray-500'
+                        }`}>+{previousSessions.length - 3} more sessions</p>
                       )}
                     </div>
                   ) : (
-                    <p className="text-gray-500 italic text-sm sm:text-base">No previous sessions found</p>
+                    <p className={`italic text-sm sm:text-base ${
+                      theme === 'dark' ? 'text-indigo-300/60' : 'text-gray-500'
+                    }`}>No previous sessions found</p>
                   )}
                 </div>
               </div>
@@ -285,12 +374,22 @@ const HostDashboard = () => {
 
             {/* All Sessions List */}
             {previousSessions.length > 0 && (
-              <div className="card">
+              <div className={`p-8 rounded-3xl shadow-2xl backdrop-blur-md border-2 ${
+                theme === 'dark'
+                  ? 'bg-white/5 border-indigo-500/30'
+                  : 'bg-white/60 border-blue-300'
+              }`}>
                 <div className="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-6">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-0">All Sessions</h2>
+                  <h2 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-0 ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-800'
+                  }`}>All Sessions</h2>
                   <button
                     onClick={handleExportData}
-                    className="flex items-center px-3 py-2 sm:px-4 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
+                    className={`flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-white transition-all ${
+                      theme === 'dark'
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500'
+                        : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400'
+                    }`}
                     disabled={loading}
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -301,18 +400,34 @@ const HostDashboard = () => {
                   {previousSessions.map((session) => (
                     <div
                       key={session.sessionId}
-                      className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      className={`flex items-center justify-between p-3 sm:p-4 rounded-lg transition-colors ${
+                        theme === 'dark'
+                          ? 'bg-white/5 hover:bg-white/10'
+                          : 'bg-white/40 hover:bg-white/60'
+                      }`}
                     >
                       <div className="flex items-center space-x-3 sm:space-x-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <span className="font-bold text-blue-600 text-sm sm:text-base">{session.sessionId}</span>
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center ${
+                          theme === 'dark'
+                            ? 'bg-indigo-500/20'
+                            : 'bg-blue-100'
+                        }`}>
+                          <span className={`font-bold text-sm sm:text-base ${
+                            theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+                          }`}>{session.sessionId}</span>
                         </div>
                         <div>
-                          <div className="font-semibold text-gray-800 text-sm sm:text-base">Session {session.sessionId}</div>
-                          <div className="text-xs sm:text-sm text-gray-600">
+                          <div className={`font-semibold text-sm sm:text-base ${
+                            theme === 'dark' ? 'text-white' : 'text-gray-800'
+                          }`}>Session {session.sessionId}</div>
+                          <div className={`text-xs sm:text-sm ${
+                            theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'
+                          }`}>
                             Created: {new Date(session.createdAt).toLocaleDateString()}
                           </div>
-                          <div className="text-xs sm:text-sm text-gray-600">
+                          <div className={`text-xs sm:text-sm ${
+                            theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'
+                          }`}>
                             Round: {session.round} | Mode: {session.playerMode}
                           </div>
                         </div>
@@ -320,13 +435,21 @@ const HostDashboard = () => {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => openPreviousSession(session.sessionId)}
-                          className="btn-secondary text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2"
+                          className={`text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-colors ${
+                            theme === 'dark'
+                              ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'
+                              : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                          }`}
                         >
                           Open
                         </button>
                         <button
                           onClick={() => confirmDelete(session.sessionId)}
-                          className="p-2 text-red-600 hover:text-red-800 transition-colors"
+                          className={`p-2 transition-colors ${
+                            theme === 'dark'
+                              ? 'text-red-400 hover:text-red-300'
+                              : 'text-red-600 hover:text-red-800'
+                          }`}
                           disabled={deleting}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -339,20 +462,50 @@ const HostDashboard = () => {
             )}
 
             <div className="grid md:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
-              <div className="card text-center">
-                <Calendar className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">Sessions Created</h3>
-                <p className="text-2xl sm:text-3xl font-bold text-blue-600">{previousSessions.length}</p>
+              <div className={`p-6 rounded-xl shadow-lg backdrop-blur-md text-center border-2 ${
+                theme === 'dark'
+                  ? 'bg-white/5 border-indigo-500/30'
+                  : 'bg-white/60 border-blue-300'
+              }`}>
+                <Calendar className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 ${
+                  theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+                }`} />
+                <h3 className={`text-lg sm:text-xl font-bold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>Sessions Created</h3>
+                <p className={`text-2xl sm:text-3xl font-bold ${
+                  theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+                }`}>{previousSessions.length}</p>
               </div>
-              <div className="card text-center">
-                <Users className="w-10 h-10 sm:w-12 sm:h-12 text-teal-600 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">Active Sessions</h3>
-                <p className="text-2xl sm:text-3xl font-bold text-teal-600">{previousSessions.filter((s) => s.active).length}</p>
+              <div className={`p-6 rounded-xl shadow-lg backdrop-blur-md text-center border-2 ${
+                theme === 'dark'
+                  ? 'bg-white/5 border-purple-500/30'
+                  : 'bg-white/60 border-purple-300'
+              }`}>
+                <Users className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 ${
+                  theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                }`} />
+                <h3 className={`text-lg sm:text-xl font-bold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>Active Sessions</h3>
+                <p className={`text-2xl sm:text-3xl font-bold ${
+                  theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                }`}>{previousSessions.filter((s) => s.active).length}</p>
               </div>
-              <div className="card text-center">
-                <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-orange-600 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">Total Rounds</h3>
-                <p className="text-2xl sm:text-3xl font-bold text-orange-600">
+              <div className={`p-6 rounded-xl shadow-lg backdrop-blur-md text-center border-2 ${
+                theme === 'dark'
+                  ? 'bg-white/5 border-indigo-500/30'
+                  : 'bg-white/60 border-blue-300'
+              }`}>
+                <Trophy className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 ${
+                  theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+                }`} />
+                <h3 className={`text-lg sm:text-xl font-bold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>Total Rounds</h3>
+                <p className={`text-2xl sm:text-3xl font-bold ${
+                  theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+                }`}>
                   {previousSessions.reduce((total, session) => total + (session.round || 1), 0)}
                 </p>
               </div>
@@ -364,17 +517,29 @@ const HostDashboard = () => {
 
         {/* Delete Session Confirmation Modal */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="card max-w-md w-full">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Delete Session</h3>
-              <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className={`p-6 rounded-xl shadow-xl max-w-md w-full ${
+              theme === 'dark'
+                ? 'bg-gray-900 border-2 border-indigo-500/30'
+                : 'bg-white/95 border-2 border-blue-300'
+            }`}>
+              <h3 className={`text-lg sm:text-xl font-bold mb-4 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-800'
+              }`}>Delete Session</h3>
+              <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${
+                theme === 'dark' ? 'text-indigo-200' : 'text-gray-600'
+              }`}>
                 Are you sure you want to delete session <strong>{showDeleteConfirm}</strong>? This action cannot be
                 undone and will remove all associated data including players and tap records.
               </p>
               <div className="flex space-x-4">
                 <button
                   onClick={() => deleteSession(showDeleteConfirm)}
-                  className="btn-accent flex-1 text-sm sm:text-base py-2 sm:py-3"
+                  className={`flex-1 text-sm sm:text-base py-2 sm:py-3 rounded-xl font-bold text-white transition-all ${
+                    theme === 'dark'
+                      ? 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500'
+                      : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400'
+                  }`}
                   disabled={deleting}
                 >
                   {deleting ? (
@@ -388,7 +553,11 @@ const HostDashboard = () => {
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(null)}
-                  className="flex-1 py-2 sm:py-3 px-4 sm:px-6 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors text-sm sm:text-base"
+                  className={`flex-1 py-2 sm:py-3 px-4 sm:px-6 rounded-xl transition-colors text-sm sm:text-base border-2 ${
+                    theme === 'dark'
+                      ? 'border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10'
+                      : 'border-blue-300 text-gray-700 hover:bg-gray-50'
+                  }`}
                   disabled={deleting}
                 >
                   Cancel
@@ -400,24 +569,44 @@ const HostDashboard = () => {
 
         {/* Delete Account Confirmation Modal */}
         {showDeleteAccount && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="card max-w-md w-full">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className={`p-6 rounded-xl shadow-xl max-w-md w-full ${
+              theme === 'dark'
+                ? 'bg-gray-900 border-2 border-indigo-500/30'
+                : 'bg-white/95 border-2 border-blue-300'
+            }`}>
               <div className="flex items-center mb-4">
-                <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-red-600 mr-3" />
-                <h3 className="text-lg sm:text-xl font-bold text-gray-800">Delete Account</h3>
+                <AlertTriangle className={`w-6 h-6 sm:w-8 sm:h-8 mr-3 ${
+                  theme === 'dark' ? 'text-red-400' : 'text-red-600'
+                }`} />
+                <h3 className={`text-lg sm:text-xl font-bold ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>Delete Account</h3>
               </div>
-              <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">
+              <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${
+                theme === 'dark' ? 'text-indigo-200' : 'text-gray-600'
+              }`}>
                 Are you sure you want to delete your account <strong>{hostUser}</strong>? This action cannot be undone
                 and will permanently remove:
               </p>
-              <ul className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6 space-y-1">
+              <ul className={`text-xs sm:text-sm mb-4 sm:mb-6 space-y-1 ${
+                theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'
+              }`}>
                 <li>• Your host account</li>
                 <li>• All your sessions ({previousSessions.length} sessions)</li>
                 <li>• All player data from your sessions</li>
                 <li>• All tap records and game history</li>
               </ul>
               <div className="flex space-x-4">
-                <button onClick={handleDeleteAccount} className="btn-accent flex-1 text-sm sm:text-base py-2 sm:py-3" disabled={deleting}>
+                <button
+                  onClick={handleDeleteAccount}
+                  className={`flex-1 text-sm sm:text-base py-2 sm:py-3 rounded-xl font-bold text-white transition-all ${
+                    theme === 'dark'
+                      ? 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500'
+                      : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400'
+                  }`}
+                  disabled={deleting}
+                >
                   {deleting ? (
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -429,7 +618,11 @@ const HostDashboard = () => {
                 </button>
                 <button
                   onClick={() => setShowDeleteAccount(false)}
-                  className="flex-1 py-2 sm:py-3 px-4 sm:px-6 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors text-sm sm:text-base"
+                  className={`flex-1 py-2 sm:py-3 px-4 sm:px-6 rounded-xl transition-colors text-sm sm:text-base border-2 ${
+                    theme === 'dark'
+                      ? 'border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10'
+                      : 'border-blue-300 text-gray-700 hover:bg-gray-50'
+                  }`}
                   disabled={deleting}
                 >
                   Cancel
@@ -439,7 +632,7 @@ const HostDashboard = () => {
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   )
 }
 

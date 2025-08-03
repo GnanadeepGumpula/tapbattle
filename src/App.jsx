@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import { displayEnvironmentStatus } from "./utils/envChecker"
 import ErrorBoundary from "./components/ErrorBoundary"
+import { ThemeProvider } from "./contexts/ThemeContext"
 import HomePage from "./pages/HomePage"
 import JoinPage from "./pages/JoinPage"
 import HostLoginPage from "./pages/HostLoginPage"
@@ -22,8 +23,8 @@ function App() {
   }, [])
 
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <ThemeProvider>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ErrorBoundary>
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -36,8 +37,8 @@ function App() {
             <Route path="*" element={<div>Not-Found</div>} />
           </Routes>
         </ErrorBoundary>
-      </div>
-    </Router>
+      </Router>
+    </ThemeProvider>
   )
 }
 

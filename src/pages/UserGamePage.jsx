@@ -4,8 +4,11 @@ import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Hand, Trophy, Clock, Users, Home, User, AlertCircle } from "lucide-react"
 import api from "../services/api"
+import { useTheme } from '../contexts/ThemeContext'
+import PageLayout from '../components/PageLayout'
 
 const UserGamePage = () => {
+  const { theme } = useTheme();
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const [hasPressed, setHasPressed] = useState(false)
@@ -49,16 +52,21 @@ const UserGamePage = () => {
     try {
       // Get player data from session storage
       const storedPlayerData = JSON.parse(sessionStorage.getItem(`player_${sessionId}`) || "{}")
+      
       if (!storedPlayerData.playerName) {
+        // No player data found, redirect to join page
         navigate("/join")
         return
       }
-
+      
       setPlayerData(storedPlayerData)
+      
+      // Load initial game data
       await loadGameData()
     } catch (error) {
       console.error("Error initializing player:", error)
-      navigate("/join")
+      setSessionNotFound(true)
+      setLoading(false)
     }
   }
 
@@ -84,6 +92,10 @@ const UserGamePage = () => {
         if (intervalRef.current) {
           clearInterval(intervalRef.current)
           intervalRef.current = null
+        }
+        setSession(sessionData)
+        if (!silent) {
+          setLoading(false)
         }
         return
       }
@@ -132,6 +144,7 @@ const UserGamePage = () => {
       console.error("Error loading game data:", error)
       if (!silent) {
         setSessionNotFound(true)
+        setLoading(false)
       } else {
         console.warn("Silent update failed, retrying on next interval")
       }
@@ -231,81 +244,144 @@ const UserGamePage = () => {
   }
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-md mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Game Session</h1>
-            <p className="text-gray-600">{playerData.playerName}</p>
-            {playerData.teamName && <p className="text-sm text-teal-600">Team: {playerData.teamName}</p>}
+    <PageLayout>
+      <div className="w-full max-w-2xl mx-auto flex flex-col gap-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-2 sm:mb-6 gap-4">
+          <div className="flex-1">
+            <h1 className={`text-4xl sm:text-5xl font-extrabold tracking-tight uppercase mb-3 ${
+              theme === 'dark' 
+                ? 'text-indigo-400 filter drop-shadow-[0_0_15px_rgba(99,102,241,0.3)]' 
+                : 'text-blue-600 filter drop-shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+            }`}>TapBattle Arena</h1>
+            <div className={`p-3 rounded-lg ${
+              theme === 'dark' 
+                ? 'bg-indigo-500/10 border border-indigo-500/30' 
+                : 'bg-blue-50 border border-blue-200'
+            }`}>
+              <p className={`text-lg font-bold ${
+                theme === 'dark' ? 'text-indigo-200' : 'text-gray-700'
+              }`}>{playerData?.playerName}</p>
+              {playerData?.teamName && (
+                <p className={`text-sm font-medium ${
+                  theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                }`}>Team: {playerData.teamName}</p>
+              )}
+            </div>
           </div>
           <button
             onClick={() => navigate("/")}
             disabled={isUpdatingRef.current}
-            className={`p-2 text-gray-600 hover:text-gray-800 transition-colors ${isUpdatingRef.current ? "opacity-50 cursor-not-allowed" : ""}`}
+            className={`p-2 ${
+              theme === 'dark' 
+                ? 'text-indigo-400 hover:text-purple-400' 
+                : 'text-blue-600 hover:text-purple-600'
+            } transition-colors ${isUpdatingRef.current ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <Home className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="card text-center mb-8">
+        {/* Session Info Card */}
+        <div className={`p-8 rounded-3xl shadow-2xl backdrop-blur-md border-2 text-center mb-2 sm:mb-6 ${
+          theme === 'dark' 
+            ? 'bg-white/5 border-indigo-500/30' 
+            : 'bg-white/60 border-blue-300'
+        }`}> 
           <div className="mb-4">
-            <div className="text-sm text-gray-600 mb-2">Session Code</div>
-            <div className="text-2xl font-bold text-blue-600">{sessionId}</div>
+            <div className={`text-sm mb-2 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>Session Code</div>
+            <div className={`text-2xl font-bold tracking-widest ${
+              theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+            }`}>{sessionId}</div>
           </div>
-          <div className="flex justify-center space-x-4 text-sm text-gray-600">
+          <div className="flex flex-wrap justify-center gap-4 text-sm">
             <div className="flex items-center">
-              <Clock className="w-4 h-4 mr-1" />
-              Round {session.round}
+              <Clock className={`w-4 h-4 mr-1 ${theme === 'dark' ? 'text-indigo-400' : 'text-blue-500'}`} />
+              <span className={`font-bold ${theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'}`}>
+                Round {session?.round}
+              </span>
             </div>
             <div className="flex items-center">
-              <Users className="w-4 h-4 mr-1" />
-              {tapOrder.length} tapped
+              <Users className={`w-4 h-4 mr-1 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-500'}`} />
+              <span className={`font-bold ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>
+                {tapOrder.length} tapped
+              </span>
             </div>
             <div className="flex items-center">
-              {playerData.teamName ? <Users className="w-4 h-4 mr-1" /> : <User className="w-4 h-4 mr-1" />}
-              {playerData.teamName ? "Team" : "Solo"}
+              {playerData?.teamName ? (
+                <Users className={`w-4 h-4 mr-1 ${theme === 'dark' ? 'text-indigo-400' : 'text-blue-500'}`} />
+              ) : (
+                <User className={`w-4 h-4 mr-1 ${theme === 'dark' ? 'text-indigo-400' : 'text-blue-500'}`} />
+              )}
+              <span className={`font-bold ${theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'}`}>
+                {playerData?.teamName ? "Team" : "Solo"}
+              </span>
             </div>
           </div>
-          <div className="text-sm text-gray-500 mt-2">Last updated: {lastUpdated}</div>
+          <div className={`text-sm mt-2 ${theme === 'dark' ? 'text-indigo-300/60' : 'text-gray-500'}`}>
+            Last updated: {lastUpdated}
+          </div>
         </div>
 
-        <div className="card text-center mb-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-6">Quick Response Challenge</h2>
+        {/* Tap Button Card */}
+        <div className={`p-8 rounded-3xl shadow-2xl backdrop-blur-md border-2 text-center mb-2 sm:mb-6 ${
+          theme === 'dark' 
+            ? 'bg-white/5 border-purple-500/30' 
+            : 'bg-white/60 border-purple-300'
+        } animate-fade-in`}> 
+          <h2 className={`text-2xl font-bold mb-6 uppercase tracking-wider ${
+            theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+          }`}>Quick Response Challenge</h2>
 
           <button
             onClick={handleButtonPress}
             disabled={hasPressed}
-            className={`tap-button ${hasPressed ? "opacity-50 cursor-not-allowed" : ""}`}
+            className={`tap-button w-full sm:w-auto px-10 py-6 text-2xl font-extrabold rounded-2xl shadow-xl transition-all duration-200 border-2 text-white ${
+              hasPressed 
+                ? `opacity-50 cursor-not-allowed ${
+                    theme === 'dark'
+                      ? 'bg-gradient-to-r from-indigo-800 to-purple-800 border-indigo-700'
+                      : 'bg-gradient-to-r from-blue-300 to-purple-300 border-blue-200'
+                  }`
+                : `${
+                    theme === 'dark'
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 border-indigo-500 hover:from-indigo-500 hover:to-purple-500'
+                      : 'bg-gradient-to-r from-blue-500 to-purple-500 border-blue-400 hover:from-blue-400 hover:to-purple-400'
+                  } animate-pulse hover:scale-105 hover:shadow-2xl`
+            }`}
           >
             {hasPressed ? (
               <div className="flex items-center justify-center">
-                <Trophy className="w-8 h-8 mr-2" />
+                <Trophy className={`w-10 h-10 mr-3 ${
+                  theme === 'dark' ? 'text-purple-400' : 'text-purple-300'
+                } animate-bounce`} />
                 TAPPED!
               </div>
             ) : (
               <div className="flex items-center justify-center">
-                <Hand className="w-8 h-8 mr-2" />
+                <Hand className={`w-10 h-10 mr-3 ${
+                  theme === 'dark' ? 'text-indigo-300' : 'text-blue-300'
+                } animate-pulse`} />
                 TAP NOW!
               </div>
             )}
           </button>
 
           {showAlreadyTapped && (
-            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="flex items-center justify-center text-orange-800">
+            <div className="mt-4 p-4 bg-gold/20 border border-gold rounded-lg animate-fade-in">
+              <div className="flex items-center justify-center text-gold">
                 <AlertCircle className="w-5 h-5 mr-2" />
                 <span className="font-semibold">Already tapped this round!</span>
               </div>
-              <p className="text-sm text-orange-600 mt-1">You are currently in position #{myPosition}</p>
+              <p className="text-sm text-gold mt-1">You are currently in position #{myPosition}</p>
             </div>
           )}
 
           {hasPressed && !showAlreadyTapped && (
-            <div className="mt-6 p-4 bg-green-50 rounded-lg">
+            <div className="mt-6 p-4 bg-neon-green/20 rounded-lg animate-fade-in">
               <div className="flex items-center justify-center mb-2">
                 {getRankIcon(myPosition)}
-                <span className={`ml-2 text-xl font-bold ${getRankColor(myPosition)}`}>
+                <span className={`ml-2 text-2xl font-extrabold text-neon-green animate-bounce`}> 
                   {myPosition === 1
                     ? "1st Place!"
                     : myPosition === 2
@@ -315,57 +391,86 @@ const UserGamePage = () => {
                         : `${myPosition}th Place`}
                 </span>
               </div>
-              <div className="text-sm text-gray-600">Tapped at {pressTime}</div>
+              <div className="text-sm text-electric-blue">Tapped at {pressTime}</div>
             </div>
           )}
         </div>
 
-        <div className="card">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Round {session.round} Leaderboard</h3>
+        {/* Leaderboard Card */}
+        <div className={`p-6 rounded-3xl shadow-2xl backdrop-blur-md border-2 ${
+          theme === 'dark' 
+            ? 'bg-white/5 border-indigo-500/30' 
+            : 'bg-white/60 border-blue-300'
+        } animate-fade-in`}> 
+          <h3 className={`text-xl font-bold mb-4 uppercase tracking-wider ${
+            theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+          }`}>Round {session.round} Leaderboard</h3>
           <div className="space-y-2">
             {tapOrder.slice(0, 10).map((tap, index) => (
               <div
                 key={index}
-                className={`flex items-center justify-between p-3 rounded-lg ${
-                  tap.playerName === playerData.playerName ? "bg-blue-50 border-2 border-blue-200" : "bg-gray-50"
-                }`}
+                className={`flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl gap-2 ${
+                  tap.playerName === playerData.playerName 
+                    ? theme === 'dark' 
+                      ? "bg-indigo-500/20 border-2 border-purple-500" 
+                      : "bg-blue-100 border-2 border-blue-500"
+                    : theme === 'dark'
+                      ? "bg-indigo-500/10"
+                      : "bg-gray-50"
+                } animate-fade-in`}
               >
                 <div className="flex items-center space-x-3">
                   <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xl font-extrabold shadow-lg ${
                       index === 0
-                        ? "bg-yellow-500 text-white"
+                        ? `${theme === 'dark' ? 'bg-indigo-500' : 'bg-blue-500'} text-white animate-bounce`
                         : index === 1
-                          ? "bg-gray-400 text-white"
+                          ? `${theme === 'dark' ? 'bg-purple-500' : 'bg-purple-500'} text-white`
                           : index === 2
-                            ? "bg-orange-500 text-white"
-                            : "bg-blue-500 text-white"
+                            ? `${theme === 'dark' ? 'bg-indigo-600' : 'bg-blue-600'} text-white`
+                            : theme === 'dark'
+                              ? 'bg-gray-800 text-gray-300'
+                              : 'bg-gray-200 text-gray-600'
                     }`}
                   >
                     {index + 1}
                   </div>
                   <div>
                     <span
-                      className={`font-medium ${tap.playerName === playerData.playerName ? "text-blue-800" : "text-gray-800"}`}
+                      className={`font-bold ${
+                        tap.playerName === playerData?.playerName 
+                          ? theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                          : theme === 'dark' ? 'text-indigo-200' : 'text-gray-700'
+                      }`}
                     >
                       {tap.playerName}
                     </span>
-                    {tap.teamName && <div className="text-xs text-teal-600">Team: {tap.teamName}</div>}
+                    {tap.teamName && (
+                      <div className={`text-xs ${
+                        theme === 'dark' ? 'text-indigo-400' : 'text-blue-500'
+                      }`}>Team: {tap.teamName}</div>
+                    )}
                   </div>
                 </div>
-                <span className="text-sm text-gray-500">{tap.time}</span>
+                <span className={`text-sm ${
+                  theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                }`}>{tap.time}</span>
               </div>
             ))}
             {tapOrder.length === 0 && (
-              <div className="text-center py-4 text-gray-500">
-                <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+              <div className={`text-center py-4 ${
+                theme === 'dark' ? 'text-indigo-300/60' : 'text-gray-500'
+              }`}>
+                <Clock className={`w-8 h-8 mx-auto mb-2 ${
+                  theme === 'dark' ? 'text-indigo-400' : 'text-blue-500'
+                } animate-pulse`} />
                 <p>No taps yet this round</p>
               </div>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </PageLayout>
   )
 }
 

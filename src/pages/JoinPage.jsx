@@ -5,10 +5,13 @@ import { useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Hash, Users, Play, User, UserPlus, AlertCircle, CheckCircle, Camera } from "lucide-react"
 import jsQR from "jsqr"
 import api from "../services/api"
+import { useTheme } from '../contexts/ThemeContext'
+import PageLayout from '../components/PageLayout'
 
 const JoinPage = () => {
   const navigate = useNavigate()
   const { sessionId } = useParams()
+  const { theme } = useTheme()
   const [step, setStep] = useState(1)
   const [sessionData, setSessionData] = useState(null)
   const [formData, setFormData] = useState({
@@ -25,7 +28,7 @@ const JoinPage = () => {
   const [showScanner, setShowScanner] = useState(false)
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
-  const streamRef = useRef(null)
+  const streamRef = useRef(null) // To store the camera stream for proper cleanup
 
   // Pre-fill joining code from URL parameter
   useEffect(() => {
@@ -39,55 +42,76 @@ const JoinPage = () => {
   useEffect(() => {
     if (showScanner) {
       const startScanner = async () => {
+        const video = videoRef.current
+        const canvas = canvasRef.current
+
+        if (!video || !canvas) {
+          setError("Video or canvas element not found.")
+          setShowScanner(false)
+          return
+        }
+
         try {
-          streamRef.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-          videoRef.current.srcObject = streamRef.current
-          videoRef.current.play()
-          requestAnimationFrame(tick)
+          // Request camera access
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+          video.srcObject = stream
+          streamRef.current = stream // Store stream for cleanup
+          await video.play()
+          requestAnimationFrame(tick) // Start the scanning loop
         } catch (err) {
           console.error("Error accessing camera:", err)
-          setError("Failed to access camera. Please allow camera permissions or enter the code manually.")
+          setError("Could not access camera. Please ensure it's allowed.")
           setShowScanner(false)
         }
       }
 
       const tick = () => {
-        if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-          const canvas = canvasRef.current
-          const context = canvas.getContext("2d")
-          canvas.height = videoRef.current.videoHeight
-          canvas.width = videoRef.current.videoWidth
-          context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+        const video = videoRef.current
+        const canvas = canvasRef.current
+        const context = canvas.getContext("2d")
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.height = video.videoHeight
+          canvas.width = video.videoWidth
+          context.drawImage(video, 0, 0, canvas.width, canvas.height)
           const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
           const code = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: "dontInvert",
           })
 
           if (code) {
-            const url = new URL(code.data)
-            const pathParts = url.pathname.split('/')
-            const sessionIdFromQR = pathParts[pathParts.length - 1] // Extract sessionId from /join/:sessionId
-            if (sessionIdFromQR) {
-              console.log("QR Code session ID:", sessionIdFromQR)
-              setFormData((prev) => ({ ...prev, joiningCode: sessionIdFromQR.toUpperCase().slice(0, 6) }))
-              stopScanner()
-              handleNext()
-              return
+            try {
+              const url = new URL(code.data)
+              // Assuming QR code contains a URL like https://yourgame.com/join/:sessionId
+              const pathParts = url.pathname.split('/')
+              const sessionIdFromQR = pathParts[pathParts.length - 1] // Extract sessionId from /join/:sessionId
+              if (sessionIdFromQR) {
+                console.log("QR Code session ID:", sessionIdFromQR)
+                setFormData((prev) => ({ ...prev, joiningCode: sessionIdFromQR.toUpperCase().slice(0, 6) }))
+                stopScanner()
+                handleNext()
+                return // Stop further scanning
+              }
+            } catch (e) {
+              console.warn("QR code data is not a valid URL or malformed:", code.data, e)
+              // Continue scanning if it's not a valid URL for sessionId extraction
             }
           }
         }
-        if (showScanner) {
+
+        if (showScanner) { // Continue scanning only if showScanner is still true
           requestAnimationFrame(tick)
         }
       }
 
       startScanner()
 
+      // Cleanup function for useEffect
       return () => {
         stopScanner()
       }
     }
-  }, [showScanner])
+  }, [showScanner]) // Depend on showScanner to re-run effect when it changes
 
   const stopScanner = () => {
     if (streamRef.current) {
@@ -112,7 +136,7 @@ const JoinPage = () => {
             setStep(4)
           } else if (response.data.playerMode === "teams") {
             setStep(2)
-          } else {
+          } else { // if playerMode is "both" or undefined/malformed
             setStep(2)
           }
         } else {
@@ -126,7 +150,7 @@ const JoinPage = () => {
       setLoading(false)
     } else if (step === 2) {
       if (sessionData.playerMode === "teams") {
-        handleInputChange("joinMode", "existing_team")
+        handleInputChange("joinMode", "existing_team") // Pre-select existing team if session is teams-only
         setStep(3)
       } else if (sessionData.playerMode === "both" && formData.joinMode) {
         if (formData.joinMode === "single") {
@@ -136,6 +160,8 @@ const JoinPage = () => {
         } else if (formData.joinMode === "new_team") {
           setStep(5)
         }
+      } else {
+        setError("Please select a join mode.")
       }
     } else if (step === 3 && formData.teamName.trim() && formData.password.trim()) {
       setLoading(true)
@@ -168,7 +194,7 @@ const JoinPage = () => {
             setExistingPlayerInfo(playerData)
             setShowConfirmation("player")
             setLoading(false)
-            return
+            return // Stop here to show confirmation
           } else {
             setError("Failed to fetch existing player information. Please try again.")
           }
@@ -176,7 +202,7 @@ const JoinPage = () => {
 
         await joinGame()
       } catch (error) {
-        console.error("Error checking player:", error.message, error.response?.data)
+        console.error("Error checking player/joining game:", error.message, error.response?.data)
         setError(`Failed to join game: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
         setLoading(false)
       }
@@ -189,14 +215,14 @@ const JoinPage = () => {
         if (teamCheck.success && teamCheck.exists) {
           setShowConfirmation("team")
           setLoading(false)
-          return
+          return // Stop here to show confirmation
         }
 
         console.log("Creating team:", { sessionId: formData.joiningCode, teamName: formData.teamName })
         const createTeamResponse = await api.createTeam(formData.joiningCode, formData.teamName, formData.password, "player")
         console.log("createTeam Response:", createTeamResponse)
         if (createTeamResponse.success) {
-          setStep(4)
+          setStep(4) // Move to player name entry after creating team
         } else {
           throw new Error(createTeamResponse.error || "Failed to create team")
         }
@@ -205,6 +231,12 @@ const JoinPage = () => {
         setError(`Failed to create team: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
       }
       setLoading(false)
+    } else {
+        // Handle cases where required fields are not filled for the current step
+        if (step === 1) setError("Please enter a 6-character joining code.")
+        if (step === 3) setError("Please enter both team name and password.")
+        if (step === 4) setError("Please enter your player name.")
+        if (step === 5) setError("Please enter both team name and password for your new team.")
     }
   }
 
@@ -213,13 +245,13 @@ const JoinPage = () => {
       let teamId = null
 
       if (formData.joinMode !== "single" && formData.teamName) {
-        console.log("Fetching team:", { sessionId: formData.joiningCode, teamName: formData.teamName })
+        console.log("Fetching team for player join:", { sessionId: formData.joiningCode, teamName: formData.teamName })
         const teamResponse = await api.getTeam(formData.joiningCode, formData.teamName)
-        console.log("getTeam Response:", teamResponse)
+        console.log("getTeam Response for player join:", teamResponse)
         if (teamResponse.success && teamResponse.team) {
           teamId = teamResponse.team.teamId
         } else {
-          throw newError(teamResponse.error || "Team not found")
+          throw new Error(teamResponse.error || "Team not found when trying to join.")
         }
       }
 
@@ -243,8 +275,9 @@ const JoinPage = () => {
     } catch (error) {
       console.error("Error joining game:", error.message, error.response?.data)
       setError(`Failed to join game: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleConfirmation = async (confirmed) => {
@@ -260,13 +293,16 @@ const JoinPage = () => {
         )
         navigate(`/game/${formData.joiningCode}`)
       } else if (showConfirmation === "team") {
+        // If confirmed that it's their team, proceed to player name entry for this team
         setStep(4)
       }
     } else {
       if (showConfirmation === "player") {
         setError("Please choose a different player name.")
+        setFormData((prev) => ({ ...prev, playerName: "" })); // Clear player name field
       } else if (showConfirmation === "team") {
         setError("Please choose a different team name.")
+        setFormData((prev) => ({ ...prev, teamName: "", password: "" })); // Clear team name and password
       }
     }
     setShowConfirmation(null)
@@ -275,7 +311,7 @@ const JoinPage = () => {
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
-    if (error) setError("")
+    if (error) setError("") // Clear error on input change
   }
 
   const renderStep = () => {
@@ -284,15 +320,25 @@ const JoinPage = () => {
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <Hash className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold text-gray-800 mb-2">Enter Joining Code</h2>
-              <p className="text-gray-600">Get the 6-character code from your host or scan the QR code</p>
+              <Hash className={`w-16 h-16 mx-auto mb-4 ${
+                theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+              }`} />
+              <h2 className={`text-3xl font-bold mb-2 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-800'
+              }`}>Enter Joining Code</h2>
+              <p className={`${
+                theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'
+              }`}>Get the 6-character code from your host or scan the QR code</p>
             </div>
             <div>
               <input
                 type="text"
                 placeholder="ABC123"
-                className="input-field text-center text-2xl font-bold tracking-widest uppercase"
+                className={`w-full text-center text-2xl font-bold tracking-widest uppercase rounded-lg p-3 transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-2 border-indigo-500/30 text-white placeholder-indigo-400/50 focus:border-indigo-400'
+                    : 'bg-white border-2 border-blue-200 text-gray-800 placeholder-blue-300 focus:border-blue-400'
+                }`}
                 value={formData.joiningCode}
                 onChange={(e) =>
                   handleInputChange(
@@ -306,20 +352,41 @@ const JoinPage = () => {
                 maxLength="6"
               />
               <button
-                onClick={() => setShowScanner(true)}
-                className="mt-4 flex items-center justify-center w-full py-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                onClick={() => {
+                  stopScanner(); // Ensure scanner is stopped if already running
+                  setShowScanner(true);
+                }}
+                className={`mt-4 flex items-center justify-center w-full py-3 rounded-lg transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-indigo-900/50 text-indigo-300 hover:bg-indigo-800/50'
+                    : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                }`}
               >
                 <Camera className="w-5 h-5 mr-2" />
                 Scan QR Code
               </button>
             </div>
             {showScanner && (
-              <div className="mt-4">
-                <video ref={videoRef} className="w-full rounded-lg" />
+              <div className="mt-4 flex flex-col items-center">
+                <video 
+                  ref={videoRef} 
+                  className={`w-full max-w-sm rounded-lg ${
+                    theme === 'dark'
+                      ? 'border-2 border-indigo-500/30'
+                      : 'border border-gray-300'
+                  }`} 
+                  autoPlay 
+                  playsInline 
+                  muted 
+                />
                 <canvas ref={canvasRef} className="hidden" />
                 <button
                   onClick={stopScanner}
-                  className="mt-4 w-full py-3 text-gray-600 hover:text-gray-800 transition-colors"
+                  className={`mt-4 w-full max-w-sm py-3 transition-colors ${
+                    theme === 'dark'
+                      ? 'text-indigo-400 hover:text-indigo-300'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
                 >
                   Cancel Scanning
                 </button>
@@ -333,100 +400,191 @@ const JoinPage = () => {
           return (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <UserPlus className="w-16 h-16 text-purple-600 mx-auto mb-4" />
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">Choose Join Mode</h2>
-                <p className="text-gray-600">How would you like to participate?</p>
+                <UserPlus className={`w-16 h-16 mx-auto mb-4 ${
+                  theme === 'dark' ? 'text-purple-400' : 'text-purple-600'
+                }`} />
+                <h2 className={`text-3xl font-bold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>Choose Join Mode</h2>
+                <p className={theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'}>
+                  How would you like to participate?
+                </p>
               </div>
               <div className="space-y-3">
                 <button
                   onClick={() => handleInputChange("joinMode", "single")}
                   className={`w-full p-4 rounded-xl border-2 transition-all ${
-                    formData.joinMode === "single"
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-blue-300"
+                    theme === 'dark'
+                      ? formData.joinMode === "single"
+                        ? 'border-indigo-500 bg-indigo-900/50'
+                        : 'border-gray-700 hover:border-indigo-500/50 bg-gray-800/50'
+                      : formData.joinMode === "single"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-blue-300"
                   }`}
                 >
-                  <User className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-                  <div className="font-semibold text-gray-800">Join as Single Player</div>
+                  <User className={`w-6 h-6 mx-auto mb-2 ${
+                    theme === 'dark' 
+                      ? formData.joinMode === "single"
+                        ? 'text-indigo-400'
+                        : 'text-indigo-400/70'
+                      : 'text-blue-600'
+                  }`} />
+                  <div className={`font-semibold ${
+                    theme === 'dark'
+                      ? formData.joinMode === "single"
+                        ? 'text-white'
+                        : 'text-indigo-200'
+                      : 'text-gray-800'
+                  }`}>Join as Single Player</div>
                 </button>
                 <button
                   onClick={() => handleInputChange("joinMode", "existing_team")}
                   className={`w-full p-4 rounded-xl border-2 transition-all ${
-                    formData.joinMode === "existing_team"
-                      ? "border-teal-500 bg-teal-50"
-                      : "border-gray-200 hover:border-teal-300"
+                    theme === 'dark'
+                      ? formData.joinMode === "existing_team"
+                        ? 'border-indigo-500 bg-indigo-900/50'
+                        : 'border-gray-700 hover:border-indigo-500/50 bg-gray-800/50'
+                      : formData.joinMode === "existing_team"
+                        ? "border-teal-500 bg-teal-50"
+                        : "border-gray-200 hover:border-teal-300"
                   }`}
                 >
-                  <Users className="w-6 h-6 text-teal-600 mx-auto mb-2" />
- vagas                  <div className="font-semibold text-gray-800">Join Existing Team</div>
+                  <Users className={`w-6 h-6 mx-auto mb-2 ${
+                    theme === 'dark'
+                      ? formData.joinMode === "existing_team"
+                        ? 'text-indigo-400'
+                        : 'text-indigo-400/70'
+                      : 'text-teal-600'
+                  }`} />
+                  <div className={`font-semibold ${
+                    theme === 'dark'
+                      ? formData.joinMode === "existing_team"
+                        ? 'text-white'
+                        : 'text-indigo-200'
+                      : 'text-gray-800'
+                  }`}>Join Existing Team</div>
                 </button>
                 <button
                   onClick={() => {
                     handleInputChange("joinMode", "new_team")
-                    setStep(5)
+                    // setStep(5) is handled by handleNext after this state update
                   }}
                   className={`w-full p-4 rounded-xl border-2 transition-all ${
-                    formData.joinMode === "new_team"
-                      ? "border-orange-500 bg-orange-50"
-                      : "border-gray-200 hover:border-orange-300"
+                    theme === 'dark'
+                      ? formData.joinMode === "new_team"
+                        ? 'border-indigo-500 bg-indigo-900/50'
+                        : 'border-gray-700 hover:border-indigo-500/50 bg-gray-800/50'
+                      : formData.joinMode === "new_team"
+                        ? "border-orange-500 bg-orange-50"
+                        : "border-gray-200 hover:border-orange-300"
                   }`}
                 >
-                  <Users className="w-6 h-6 text-orange-600 mx-auto mb-2" />
-                  <div className="font-semibold text-gray-800">Create New Team</div>
+                  <Users className={`w-6 h-6 mx-auto mb-2 ${
+                    theme === 'dark'
+                      ? formData.joinMode === "new_team"
+                        ? 'text-indigo-400'
+                        : 'text-indigo-400/70'
+                      : 'text-orange-600'
+                  }`} />
+                  <div className={`font-semibold ${
+                    theme === 'dark'
+                      ? formData.joinMode === "new_team"
+                        ? 'text-white'
+                        : 'text-indigo-200'
+                      : 'text-gray-800'
+                  }`}>Create New Team</div>
                 </button>
               </div>
             </div>
           )
-        } else {
+        } else { // sessionData.playerMode === "teams"
           return (
             <div className="space-y-6">
               <div className="text-center mb-8">
-                <Users className="w-16 h-16 text-teal-600 mx-auto mb-4" />
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">Teams Only Mode</h2>
-                <p className="text-gray-600">This session requires team participation</p>
-                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-700">
+                <Users className={`w-16 h-16 mx-auto mb-4 ${
+                  theme === 'dark' ? 'text-indigo-400' : 'text-teal-600'
+                }`} />
+                <h2 className={`text-3xl font-bold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>Teams Only Mode</h2>
+                <p className={theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'}>
+                  This session requires team participation
+                </p>
+                <div className={`mt-4 p-4 rounded-lg border ${
+                  theme === 'dark'
+                    ? 'bg-indigo-900/30 border-indigo-500/30'
+                    : 'bg-blue-50 border-blue-200'
+                }`}>
+                  <p className={`text-sm ${
+                    theme === 'dark' ? 'text-indigo-200' : 'text-blue-700'
+                  }`}>
                     <strong>Host has set this session to teams only.</strong>
                     <br />
                     You need to get a team name and password from the host to join.
                   </p>
                 </div>
               </div>
+              {/* This button implicitly sets joinMode to existing_team and proceeds to step 3 */}
               <button
                 onClick={() => {
                   handleInputChange("joinMode", "existing_team")
-                  setStep(3)
+                  // setStep(3) is handled by handleNext after this state update
                 }}
-                className="w-full p-4 bg-teal-50 hover:bg-teal-100 rounded-xl border-2 border-teal-200 hover:border-teal-300 transition-all"
+                className={`w-full p-4 rounded-xl border-2 transition-all ${
+                  theme === 'dark'
+                    ? 'border-indigo-500 bg-indigo-900/50 hover:bg-indigo-800/50'
+                    : 'border-teal-200 bg-teal-50 hover:bg-teal-100 hover:border-teal-300'
+                }`}
               >
-                <Users className="w-6 h-6 text-teal-600 mx-auto mb-2" />
-                <div className="font-semibold text-gray-800">Enter Team Credentials</div>
-                <div className="text-sm text-teal-600">Get team name and password from host</div>
+                <Users className={`w-6 h-6 mx-auto mb-2 ${
+                  theme === 'dark' ? 'text-indigo-400' : 'text-teal-600'
+                }`} />
+                <div className={`font-semibold ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>Enter Team Credentials</div>
+                <div className={`text-sm ${
+                  theme === 'dark' ? 'text-indigo-300' : 'text-teal-600'
+                }`}>Get team name and password from host</div>
               </button>
             </div>
           )
         }
 
-      case 3:
+      case 3: // Join Existing Team
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <Users className="w-16 h-16 text-teal-600 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold text-gray-800 mb-2">Join Existing Team</h2>
-              <p className="text-gray-600">Enter team credentials</p>
+              <Users className={`w-16 h-16 mx-auto mb-4 ${
+                theme === 'dark' ? 'text-indigo-400' : 'text-teal-600'
+              }`} />
+              <h2 className={`text-3xl font-bold mb-2 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-800'
+              }`}>Join Existing Team</h2>
+              <p className={theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'}>
+                Enter team credentials
+              </p>
             </div>
             <div className="space-y-4">
               <input
                 type="text"
                 placeholder="Team Name"
-                className="input-field text-center text-xl"
+                className={`w-full text-center text-xl rounded-lg p-3 transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-2 border-indigo-500/30 text-white placeholder-indigo-400/50 focus:border-indigo-400'
+                    : 'bg-white border-2 border-teal-200 text-gray-800 placeholder-teal-300 focus:border-teal-400'
+                }`}
                 value={formData.teamName}
                 onChange={(e) => handleInputChange("teamName", e.target.value)}
               />
               <input
                 type="password"
                 placeholder="Team Password"
-                className="input-field text-center text-xl"
+                className={`w-full text-center text-xl rounded-lg p-3 transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-2 border-indigo-500/30 text-white placeholder-indigo-400/50 focus:border-indigo-400'
+                    : 'bg-white border-2 border-teal-200 text-gray-800 placeholder-teal-300 focus:border-teal-400'
+                }`}
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
               />
@@ -434,21 +592,29 @@ const JoinPage = () => {
           </div>
         )
 
-      case 4:
+      case 4: // Enter Player Name (for single or team)
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <User className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold text-gray-800 mb-2">Enter Your Name</h2>
-              <p className="text-gray-600">
-                {formData.teamName ? `Joining team: ${formData.teamName}` : "Playing as individual"}
+              <User className={`w-16 h-16 mx-auto mb-4 ${
+                theme === 'dark' ? 'text-indigo-400' : 'text-blue-600'
+              }`} />
+              <h2 className={`text-3xl font-bold mb-2 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-800'
+              }`}>Enter Your Name</h2>
+              <p className={theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'}>
+                {formData.joinMode === "single" ? "Playing as individual" : formData.teamName ? `Joining team: ${formData.teamName}` : "Enter your name"}
               </p>
             </div>
             <div>
               <input
                 type="text"
                 placeholder="Your Name"
-                className="input-field text-center text-xl"
+                className={`w-full text-center text-xl rounded-lg p-3 transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-2 border-indigo-500/30 text-white placeholder-indigo-400/50 focus:border-indigo-400'
+                    : 'bg-white border-2 border-blue-200 text-gray-800 placeholder-blue-300 focus:border-blue-400'
+                }`}
                 value={formData.playerName}
                 onChange={(e) => handleInputChange("playerName", e.target.value)}
               />
@@ -456,26 +622,40 @@ const JoinPage = () => {
           </div>
         )
 
-      case 5:
+      case 5: // Create New Team
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
-              <UserPlus className="w-16 h-16 text-orange-600 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold text-gray-800 mb-2">Create New Team</h2>
-              <p className="text-gray-600">Set up your team credentials</p>
+              <UserPlus className={`w-16 h-16 mx-auto mb-4 ${
+                theme === 'dark' ? 'text-indigo-400' : 'text-orange-600'
+              }`} />
+              <h2 className={`text-3xl font-bold mb-2 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-800'
+              }`}>Create New Team</h2>
+              <p className={theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'}>
+                Set up your team credentials
+              </p>
             </div>
             <div className="space-y-4">
               <input
                 type="text"
                 placeholder="Team Name"
-                className="input-field text-center text-xl"
+                className={`w-full text-center text-xl rounded-lg p-3 transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-2 border-indigo-500/30 text-white placeholder-indigo-400/50 focus:border-indigo-400'
+                    : 'bg-white border-2 border-orange-200 text-gray-800 placeholder-orange-300 focus:border-orange-400'
+                }`}
                 value={formData.teamName}
                 onChange={(e) => handleInputChange("teamName", e.target.value)}
               />
               <input
                 type="password"
                 placeholder="Team Password"
-                className="input-field text-center text-xl"
+                className={`w-full text-center text-xl rounded-lg p-3 transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-2 border-indigo-500/30 text-white placeholder-indigo-400/50 focus:border-indigo-400'
+                    : 'bg-white border-2 border-orange-200 text-gray-800 placeholder-orange-300 focus:border-orange-400'
+                }`}
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
               />
@@ -493,7 +673,8 @@ const JoinPage = () => {
       case 1:
         return formData.joiningCode.length === 6
       case 2:
-        return formData.joinMode !== ""
+        // Only applicable if playerMode is "both" and a choice has been made
+        return sessionData?.playerMode === "teams" || (sessionData?.playerMode === "both" && formData.joinMode !== "")
       case 3:
         return formData.teamName.trim().length > 0 && formData.password.trim().length > 0
       case 4:
@@ -506,51 +687,82 @@ const JoinPage = () => {
   }
 
   const getStepCount = () => {
-    if (!sessionData) return 3
-    if (sessionData.playerMode === "single") return 2
-    if (formData.joinMode === "single") return 3
-    if (formData.joinMode === "existing_team") return 4
-    if (formData.joinMode === "new_team") return 4
-    return 4
+    if (!sessionData) return 1 // Initial state before session data is loaded
+    if (sessionData.playerMode === "single") return 2 // Code -> Player Name
+    if (sessionData.playerMode === "teams") return 3 // Code -> Team Creds -> Player Name
+    if (sessionData.playerMode === "both") {
+        if (formData.joinMode === "single") return 3 // Code -> Choose Mode -> Player Name
+        if (formData.joinMode === "existing_team") return 4 // Code -> Choose Mode -> Team Creds -> Player Name
+        if (formData.joinMode === "new_team") return 4 // Code -> Choose Mode -> Create Team -> Player Name
+        return 2 // Default when "both" mode is selected but no joinMode chosen yet (Code -> Choose Mode)
+    }
+    return 1 // Fallback
   }
-
+  
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
+    <PageLayout>
+      <div className="w-full max-w-lg mx-auto">
         <button
           onClick={() => navigate("/")}
-          className="flex items-center text-gray-600 hover:text-gray-800 mb-8 transition-colors"
+          className={`flex items-center ${theme === 'dark' ? 'text-indigo-400 hover:text-purple-400' : 'text-blue-600 hover:text-purple-600'} mb-8 transition-colors`}
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
           Back to Home
         </button>
 
-        <div className="card">
+        <div className={`p-8 rounded-3xl shadow-2xl backdrop-blur-md border-2 ${
+          theme === 'dark' 
+            ? 'bg-white/5 border-indigo-500/30' 
+            : 'bg-white/60 border-blue-300'
+        }`}>
           <div className="mb-8">
             <div className="flex justify-center mb-4">
               {Array.from({ length: getStepCount() }, (_, i) => i + 1).map((i) => (
                 <div key={i} className="flex items-center">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      i <= step ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-lg ${
+                      i <= step 
+                        ? theme === 'dark'
+                          ? 'bg-indigo-500 text-white' 
+                          : 'bg-blue-500 text-white'
+                        : theme === 'dark'
+                          ? 'bg-gray-800 text-gray-400'
+                          : 'bg-gray-200 text-gray-500'
                     }`}
                   >
                     {i}
                   </div>
-                  {i < getStepCount() && <div className={`w-8 h-1 mx-2 ${i < step ? "bg-blue-600" : "bg-gray-200"}`} />}
+                  {i < getStepCount() && (
+                    <div className={`w-8 h-1 mx-2 ${
+                      i < step 
+                        ? theme === 'dark'
+                          ? 'bg-indigo-500' 
+                          : 'bg-blue-500'
+                        : theme === 'dark'
+                          ? 'bg-gray-800'
+                          : 'bg-gray-200'
+                    }`} />
+                  )}
                 </div>
               ))}
             </div>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-center text-red-800">
-                seven                <AlertCircle className="w-5 h-5 mr-2" />
+            <div className={`mb-6 p-4 rounded-lg ${
+              theme === 'dark'
+                ? 'bg-red-900/20 border border-red-500/30'
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <div className={`flex items-center ${
+                theme === 'dark' ? 'text-red-400' : 'text-red-800'
+              }`}>
                 <AlertCircle className="w-5 h-5 mr-2" />
                 <span className="font-semibold">Error</span>
               </div>
-              <p className="text-sm text-red-600 mt-1">{error}</p>
+              <p className={`text-sm mt-1 ${
+                theme === 'dark' ? 'text-red-300' : 'text-red-600'
+              }`}>{error}</p>
             </div>
           )}
 
@@ -559,7 +771,15 @@ const JoinPage = () => {
           <div className="mt-8 space-y-4">
             <button
               onClick={handleNext}
-              className={`btn-primary w-full ${!canProceed() || loading || showScanner ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`w-full py-3 rounded-xl font-semibold transition-all flex items-center justify-center ${
+                theme === 'dark'
+                  ? !canProceed() || loading || showScanner
+                    ? 'bg-indigo-600/50 text-white/50 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                  : !canProceed() || loading || showScanner
+                    ? 'bg-blue-600/50 text-white/50 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white'
+              }`}
               disabled={!canProceed() || loading || showScanner}
             >
               {loading ? (
@@ -575,63 +795,126 @@ const JoinPage = () => {
               )}
             </button>
 
+            {/* Back button logic */}
             {step > 1 && !showScanner && (
-              <button
-                onClick={() => setStep(step - 1)}
-                className="w-full py-3 text-gray-600 hover:text-gray-800 transition-colors"
-                disabled={loading}
-              >
-                Back
-              </button>
+                <button
+                    onClick={() => {
+                        // Custom back logic for "both" player mode
+                        if (step === 4 && sessionData?.playerMode === "both" && formData.joinMode !== "single") {
+                            // If coming from team entry, go back to team choice or team creation based on joinMode
+                            if (formData.joinMode === "existing_team") {
+                                setStep(3); // Go back to existing team details
+                            } else if (formData.joinMode === "new_team") {
+                                setStep(5); // Go back to new team creation
+                            }
+                        } else if (step === 3 && sessionData?.playerMode === "teams") {
+                            // If in teams-only mode, step 3 goes back to step 1 (joining code)
+                            setStep(1);
+                        } else if (step === 5 && sessionData?.playerMode === "both") {
+                            // If creating a new team, go back to join mode selection
+                            setStep(2);
+                        }
+                        else if (step === 4 && sessionData?.playerMode === "single") {
+                            // If single player mode, from player name, go back to joining code
+                            setStep(1);
+                        }
+                        else {
+                            setStep(step - 1); // Default back one step
+                        }
+                        setError(""); // Clear error when going back
+                    }}
+                    className={`w-full py-3 transition-colors font-medium ${
+                      theme === 'dark'
+                        ? loading
+                          ? 'text-indigo-400/50 cursor-not-allowed'
+                          : 'text-indigo-400 hover:text-indigo-300'
+                        : loading
+                          ? 'text-gray-600/50 cursor-not-allowed'
+                          : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                    disabled={loading}
+                >
+                    Back
+                </button>
             )}
           </div>
         </div>
 
         {showConfirmation && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="card max-w-md w-full">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full ${
+              theme === 'dark'
+                ? 'bg-gray-900/95 border-2 border-indigo-500/30'
+                : 'bg-white/95 border-2 border-blue-200'
+            }`}>
               <div className="flex items-center mb-4">
-                <AlertCircle className="w-8 h-8 text-orange-600 mr-3" />
-                <h3 className="text-xl font-bold text-gray-800">
+                <AlertCircle className={`w-8 h-8 mr-3 ${
+                  theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
+                }`} />
+                <h3 className={`text-xl font-bold ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>
                   {showConfirmation === "player" ? "Player Name Exists" : "Team Name Exists"}
                 </h3>
               </div>
 
               {showConfirmation === "player" && existingPlayerInfo ? (
                 <div className="mb-6">
-                  <p className="text-gray-600 mb-4">
+                  <p className={`mb-4 ${
+                    theme === 'dark' ? 'text-indigo-200' : 'text-gray-600'
+                  }`}>
                     A player named <strong>"{formData.playerName}"</strong> already exists in this session.
                   </p>
-                  <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                    <h4 className="font-semibold text-blue-800 mb-2">Existing Player Info:</h4>
-                    <div className="text-sm text-blue-700 space-y-1">
+                  <div className={`p-4 rounded-lg mb-4 ${
+                    theme === 'dark'
+                      ? 'bg-indigo-900/30 border border-indigo-500/30'
+                      : 'bg-blue-50'
+                  }`}>
+                    <h4 className={`font-semibold mb-2 ${
+                      theme === 'dark' ? 'text-indigo-300' : 'text-blue-800'
+                    }`}>Existing Player Info:</h4>
+                    <div className={`text-sm space-y-1 ${
+                      theme === 'dark' ? 'text-indigo-200' : 'text-blue-700'
+                    }`}>
                       <div>• Name: {existingPlayerInfo.playerName}</div>
                       <div>• Mode: {existingPlayerInfo.joinMode === "single" ? "Solo Player" : "Team Player"}</div>
                       {existingPlayerInfo.teamInfo && <div>• Team: {existingPlayerInfo.teamInfo.teamName}</div>}
                       <div>• Joined: {new Date(existingPlayerInfo.createdAt).toLocaleDateString()}</div>
                     </div>
                   </div>
-                  <p className="text-gray-600">Is this you?</p>
+                  <p className={theme === 'dark' ? 'text-indigo-200' : 'text-gray-600'}>
+                    Is this you?
+                  </p>
                 </div>
               ) : (
-                <p className="text-gray-600 mb-6">
+                <p className={`mb-6 ${
+                  theme === 'dark' ? 'text-indigo-200' : 'text-gray-600'
+                }`}>
                   {showConfirmation === "player"
                     ? `A player named "${formData.playerName}" already exists in this session. Is this you?`
-                    : `A team named "${formData.teamName}" already exists in this session. Is this your team?`}
+                    : `A team named "${formData.teamName}" already exists in this session. Do you want to join this team?`}
                 </p>
               )}
 
               <div className="flex space-x-4">
                 <button
                   onClick={() => handleConfirmation(true)}
-                  className="btn-secondary flex-1 flex items-center justify-center"
+                  className={`flex-1 flex items-center justify-center py-3 px-6 rounded-xl font-semibold transition-all ${
+                    theme === 'dark'
+                      ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white'
+                  }`} // btn-secondary replaced with btn-primary for "Yes"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Yes, that's me
+                  Yes, that's {showConfirmation === "player" ? "me" : "my team"}
                 </button>
                 <button
                   onClick={() => handleConfirmation(false)}
-                  className="flex-1 py-3 px-6 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+                  className={`flex-1 py-3 px-6 rounded-xl border-2 transition-colors ${
+                    theme === 'dark'
+                      ? 'border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10'
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
                 >
                   No, use different name
                 </button>
@@ -640,7 +923,7 @@ const JoinPage = () => {
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   )
 }
 

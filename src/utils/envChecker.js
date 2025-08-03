@@ -1,5 +1,5 @@
 export function checkEnvironment() {
-  const requiredVars = ["VITE_GOOGLE_SERVICE_ACCOUNT_EMAIL", "VITE_GOOGLE_PRIVATE_KEY", "VITE_GOOGLE_SPREADSHEET_ID"]
+  const requiredVars = ["VITE_API_URL"] // Only checking for API URL since other variables are in backend
 
   const missing = []
   const env = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : process.env

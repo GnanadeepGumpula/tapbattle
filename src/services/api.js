@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL; // e.g. http://localhost:3000
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; // Default to localhost if not specified
 
 const api = {
   /* ---------------- HOST ROUTES ---------------- */
