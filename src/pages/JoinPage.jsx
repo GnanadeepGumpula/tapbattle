@@ -214,23 +214,35 @@ const JoinPage = () => {
         console.log("Checking team exists:", { sessionId: formData.joiningCode, teamName: formData.teamName })
         const teamCheck = await api.checkTeamExists(formData.joiningCode, formData.teamName)
         console.log("checkTeamExists Response:", teamCheck)
+        
         if (teamCheck.success && teamCheck.exists) {
-          setShowConfirmation("team")
-          setLoading(false)
-          return // Stop here to show confirmation
-        }
-
-        console.log("Creating team:", { sessionId: formData.joiningCode, teamName: formData.teamName })
-        const createTeamResponse = await api.createTeam(formData.joiningCode, formData.teamName, formData.password)
-        console.log("createTeam Response:", createTeamResponse)
-        if (createTeamResponse.success) {
-          setStep(4) // Move to player name entry after creating team
+          // Team already exists - try to validate with provided password
+          console.log("Team exists, validating password...")
+          const validateResponse = await api.validateTeam(formData.joiningCode, formData.teamName, formData.password)
+          console.log("validateTeam Response:", validateResponse)
+          
+          if (validateResponse.success && validateResponse.isValid) {
+            // Password is correct - user can join this existing team
+            setStep(4) // Move to player name entry
+          } else {
+            // Password is incorrect - team exists but wrong password
+            setError("A team with this name already exists. Please check your password or choose a different team name.")
+          }
         } else {
-          throw new Error(createTeamResponse.error || "Failed to create team")
+          // Team doesn't exist - create new team
+          console.log("Creating new team:", { sessionId: formData.joiningCode, teamName: formData.teamName })
+          const createTeamResponse = await api.createTeam(formData.joiningCode, formData.teamName, formData.password)
+          console.log("createTeam Response:", createTeamResponse)
+          
+          if (createTeamResponse.success) {
+            setStep(4) // Move to player name entry after creating team
+          } else {
+            throw new Error(createTeamResponse.error || "Failed to create team")
+          }
         }
       } catch (error) {
-        console.error("Error creating team:", error.message, error.response?.data)
-        setError(`Failed to create team: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
+        console.error("Error with team creation/validation:", error.message, error.response?.data)
+        setError(`Failed to process team: ${error.response?.data?.error || error.message || 'Unknown error'}. Please try again.`)
       }
       setLoading(false)
     } else {
@@ -250,8 +262,8 @@ const JoinPage = () => {
         console.log("Fetching team for player join:", { sessionId: formData.joiningCode, teamName: formData.teamName })
         const teamResponse = await api.getTeam(formData.joiningCode, formData.teamName)
         console.log("getTeam Response for player join:", teamResponse)
-        if (teamResponse.success && teamResponse.team) {
-          teamId = teamResponse.team.teamId
+        if (teamResponse.success && teamResponse.data) {
+          teamId = teamResponse.data.teamId
         } else {
           throw new Error(teamResponse.error || "Team not found when trying to join.")
         }
