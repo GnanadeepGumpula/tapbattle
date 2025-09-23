@@ -1,5 +1,34 @@
 import axios from "axios";
 
+// Configure axios with timeout and retry logic
+axios.defaults.timeout = 10000; // 10 second timeout
+axios.defaults.retry = 3;
+axios.defaults.retryDelay = 1000;
+
+// Add retry interceptor
+axios.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config;
+    
+    // Check if we should retry
+    if (!config || !config.retry || config.__retryCount >= config.retry) {
+      return Promise.reject(error);
+    }
+    
+    // Increment retry count
+    config.__retryCount = config.__retryCount || 0;
+    config.__retryCount += 1;
+    
+    // Wait before retry
+    await new Promise(resolve => 
+      setTimeout(resolve, config.retryDelay || 1000)
+    );
+    
+    return axios(config);
+  }
+);
+
 // More robust environment detection for production
 const getBaseURL = () => {
   // Check if we're in production and VITE_API_URL is not set
@@ -93,7 +122,7 @@ loginHost: async (username, password) => {
     }
   },
 
-  // Delete a session
+  // Delete a session (backend handles cascade delete)
   deleteSession: async (sessionId) => {
     try {
       const response = await axios.delete(`${BASE_URL}/api/sessions/${sessionId}`);
@@ -134,7 +163,7 @@ getSession: async (sessionId) => {
 checkPlayerExists: async (sessionId, playerName) => {
   try {
     const res = await axios.get(`${BASE_URL}/api/session/${sessionId}/player/${playerName}/exists`)
-    return res.data
+    return res.data // Backend returns { success: true, exists: boolean }
   } catch (err) {
     return { success: false, error: err.message }
   }
@@ -147,6 +176,38 @@ checkPlayerExists: async (sessionId, playerName) => {
     try {
       const response = await axios.post(`${BASE_URL}/api/teams/validate`, { sessionId, teamName, password });
       return { success: true, isValid: response.data.isValid };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || error.message };
+    }
+  },
+
+  // Check if team exists (using player check as workaround)
+  checkTeamExists: async (sessionId, teamName) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/teams/session/${sessionId}`);
+      if (response.data && Array.isArray(response.data)) {
+        const teamExists = response.data.some(team => team.teamName === teamName);
+        return { success: true, exists: teamExists };
+      }
+      return { success: true, exists: false };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || error.message };
+    }
+  },
+
+  // Get team by name (using teams list endpoint)
+  getTeam: async (sessionId, teamName) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/teams/session/${sessionId}`);
+      if (response.data && Array.isArray(response.data)) {
+        const team = response.data.find(t => t.teamName === teamName);
+        if (team) {
+          return { success: true, data: team };
+        } else {
+          return { success: false, error: "Team not found" };
+        }
+      }
+      return { success: false, error: "No teams found" };
     } catch (error) {
       return { success: false, error: error.response?.data?.error || error.message };
     }
@@ -180,8 +241,8 @@ checkPlayerExists: async (sessionId, playerName) => {
   // Get player info with team
 getPlayerWithTeamInfo: async (sessionId, playerName) => {
   try {
-    const res = await axios.get(`${BASE_URL}/api/players/${sessionId}/${playerName}`)
-    return res.data
+    const res = await axios.get(`${BASE_URL}/api/session/${sessionId}/player/${playerName}`)
+    return res.data // Backend returns { success: true, player: PlayerObject }
   } catch (err) {
     return { success: false, error: err.message }
   }

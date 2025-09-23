@@ -33,7 +33,9 @@ const JoinPage = () => {
   // Pre-fill joining code from URL parameter
   useEffect(() => {
     if (sessionId) {
-      setFormData((prev) => ({ ...prev, joiningCode: sessionId.toUpperCase().slice(0, 6) }))
+      // Use the full sessionId if it's longer than 6 characters, otherwise slice to 6
+      const joiningCode = sessionId.length > 6 ? sessionId.toUpperCase() : sessionId.toUpperCase().slice(0, 6)
+      setFormData((prev) => ({ ...prev, joiningCode }))
       handleNext() // Automatically validate the sessionId
     }
   }, [sessionId])
@@ -124,7 +126,7 @@ const JoinPage = () => {
   const handleNext = async () => {
     setError("")
 
-    if (step === 1 && formData.joiningCode.length === 6) {
+    if (step === 1 && formData.joiningCode.length >= 6) { // Allow codes 6 characters or longer
       setLoading(true)
       try {
         const response = await api.getSession(formData.joiningCode)
@@ -185,7 +187,7 @@ const JoinPage = () => {
         console.log("Checking player:", { sessionId: formData.joiningCode, playerName: formData.playerName })
         const playerCheck = await api.checkPlayerExists(formData.joiningCode, formData.playerName)
         console.log("checkPlayerExists Response:", playerCheck)
-        if (playerCheck.success && playerCheck.exists && playerCheck.exists.exists) {
+        if (playerCheck.success && playerCheck.exists) {
           const playerResponse = await api.getPlayerWithTeamInfo(formData.joiningCode, formData.playerName)
           console.log("getPlayerWithTeamInfo Response:", playerResponse)
           if (playerResponse.success && playerResponse.player) {
@@ -219,7 +221,7 @@ const JoinPage = () => {
         }
 
         console.log("Creating team:", { sessionId: formData.joiningCode, teamName: formData.teamName })
-        const createTeamResponse = await api.createTeam(formData.joiningCode, formData.teamName, formData.password, "player")
+        const createTeamResponse = await api.createTeam(formData.joiningCode, formData.teamName, formData.password)
         console.log("createTeam Response:", createTeamResponse)
         if (createTeamResponse.success) {
           setStep(4) // Move to player name entry after creating team
@@ -233,7 +235,7 @@ const JoinPage = () => {
       setLoading(false)
     } else {
         // Handle cases where required fields are not filled for the current step
-        if (step === 1) setError("Please enter a 6-character joining code.")
+        if (step === 1) setError("Please enter a valid joining code (at least 6 characters).")
         if (step === 3) setError("Please enter both team name and password.")
         if (step === 4) setError("Please enter your player name.")
         if (step === 5) setError("Please enter both team name and password for your new team.")
@@ -328,7 +330,7 @@ const JoinPage = () => {
               }`}>Enter Joining Code</h2>
               <p className={`${
                 theme === 'dark' ? 'text-indigo-300' : 'text-gray-600'
-              }`}>Get the 6-character code from your host or scan the QR code</p>
+              }`}>Get the joining code from your host or scan the QR code</p>
             </div>
             <div>
               <input

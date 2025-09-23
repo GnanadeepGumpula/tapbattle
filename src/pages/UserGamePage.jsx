@@ -31,14 +31,29 @@ const UserGamePage = () => {
     initializePlayer()
   }, [sessionId])
 
-  // Set up polling for real-time updates
+  // Set up polling for real-time updates with exponential backoff
   useEffect(() => {
     if (!loading && playerData && session && !sessionNotFound) {
-      intervalRef.current = setInterval(() => {
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      const poll = () => {
         if (!isUpdatingRef.current) {
-          loadGameData(true) // Silent update
+          loadGameData(true)
+            .then(() => {
+              retryCount = 0; // Reset on successful update
+            })
+            .catch(() => {
+              retryCount++;
+              if (retryCount >= maxRetries) {
+                console.warn("Max retries reached, stopping polling");
+                clearInterval(intervalRef.current);
+              }
+            });
         }
-      }, 1000) // 1-second refresh
+      };
+      
+      intervalRef.current = setInterval(poll, 2000); // Increased to 2 seconds
     }
 
     return () => {
