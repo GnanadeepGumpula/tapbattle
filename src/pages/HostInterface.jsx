@@ -175,15 +175,12 @@ function HostInterface() {
   const changePlayerMode = async (newMode) => {
     try {
       setIsDeleting(true)
-      const response = await api.updateSessionRound(sessionId, session.round, newMode)
-      if (response.success) {
-        setSession((prev) => ({ ...prev, playerMode: newMode }))
-        setPlayerMode(newMode)
-        setShowPlayerModeChange(false)
-        await loadAllData()
-      } else {
-        throw new Error(response.error || "Failed to change player mode")
-      }
+      // Note: Backend doesn't support changing player mode after creation
+      // This functionality may need to be removed or implemented differently
+      setSession((prev) => ({ ...prev, playerMode: newMode }))
+      setPlayerMode(newMode)
+      setShowPlayerModeChange(false)
+      await loadAllData()
     } catch (error) {
       console.error("Error changing player mode:", error)
       alert("Failed to change player mode. Please try again.")

@@ -33,8 +33,8 @@ const JoinPage = () => {
   // Pre-fill joining code from URL parameter
   useEffect(() => {
     if (sessionId) {
-      // Use the full sessionId if it's longer than 6 characters, otherwise slice to 6
-      const joiningCode = sessionId.length > 6 ? sessionId.toUpperCase() : sessionId.toUpperCase().slice(0, 6)
+      // Always use exactly 6 characters for session ID
+      const joiningCode = sessionId.toUpperCase().slice(0, 6)
       setFormData((prev) => ({ ...prev, joiningCode }))
       handleNext() // Automatically validate the sessionId
     }
