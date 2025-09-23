@@ -137,9 +137,12 @@ loginHost: async (username, password) => {
   // Create a team
   createTeam: async (sessionId, teamName, password) => {
     try {
+      console.log('createTeam - calling with:', { sessionId, teamName, password: '***' });
       const response = await axios.post(`${BASE_URL}/api/teams`, { sessionId, teamName, password });
+      console.log('createTeam - response:', response.data);
       return { success: true, teamId: response.data.teamId };
     } catch (error) {
+      console.error('createTeam error:', error.response?.data || error.message);
       return { success: false, error: error.response?.data?.error || error.message };
     }
   },
@@ -174,9 +177,12 @@ checkPlayerExists: async (sessionId, playerName) => {
   // Validate team credentials
   validateTeam: async (sessionId, teamName, password) => {
     try {
+      console.log('validateTeam - calling with:', { sessionId, teamName, password: '***' });
       const response = await axios.post(`${BASE_URL}/api/teams/validate`, { sessionId, teamName, password });
+      console.log('validateTeam - response:', response.data);
       return { success: true, isValid: response.data.isValid };
     } catch (error) {
+      console.error('validateTeam error:', error.response?.data || error.message);
       return { success: false, error: error.response?.data?.error || error.message };
     }
   },
@@ -185,12 +191,15 @@ checkPlayerExists: async (sessionId, playerName) => {
   checkTeamExists: async (sessionId, teamName) => {
     try {
       const response = await axios.get(`${BASE_URL}/api/teams/session/${sessionId}`);
+      console.log('checkTeamExists - teams response:', response.data);
       if (response.data && Array.isArray(response.data)) {
         const teamExists = response.data.some(team => team.teamName === teamName);
+        console.log('checkTeamExists - team exists:', teamExists, 'for team:', teamName);
         return { success: true, exists: teamExists };
       }
       return { success: true, exists: false };
     } catch (error) {
+      console.error('checkTeamExists error:', error);
       return { success: false, error: error.response?.data?.error || error.message };
     }
   },
