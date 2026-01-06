@@ -36,7 +36,7 @@ const JoinPage = () => {
       // Always use exactly 6 characters for session ID
       const joiningCode = sessionId.toUpperCase().slice(0, 6)
       setFormData((prev) => ({ ...prev, joiningCode }))
-      handleNext() // Automatically validate the sessionId
+      handleNext(joiningCode) // Automatically validate the sessionId
     }
   }, [sessionId])
 
@@ -88,10 +88,11 @@ const JoinPage = () => {
               const pathParts = url.pathname.split('/')
               const sessionIdFromQR = pathParts[pathParts.length - 1] // Extract sessionId from /join/:sessionId
               if (sessionIdFromQR) {
-                console.log("QR Code session ID:", sessionIdFromQR)
-                setFormData((prev) => ({ ...prev, joiningCode: sessionIdFromQR.toUpperCase().slice(0, 6) }))
+                const code = sessionIdFromQR.toUpperCase().slice(0, 6)
+                console.log("QR Code session ID:", code)
+                setFormData((prev) => ({ ...prev, joiningCode: code }))
                 stopScanner()
-                handleNext()
+                handleNext(code)
                 return // Stop further scanning
               }
             } catch (e) {
@@ -123,13 +124,18 @@ const JoinPage = () => {
     setShowScanner(false)
   }
 
-  const handleNext = async () => {
+  const handleNext = async (overrideJoiningCode) => {
     setError("")
 
-    if (step === 1 && formData.joiningCode.length >= 6) { // Allow codes 6 characters or longer
+    // Use overrideJoiningCode when provided to avoid relying on possibly-stale formData after setState
+    const codeToValidate = overrideJoiningCode ?? formData.joiningCode
+
+    if (step === 1 && codeToValidate.length >= 6) { // Allow codes 6 characters or longer
+      // Ensure the formData reflects what we're validating
+      setFormData((prev) => ({ ...prev, joiningCode: codeToValidate }))
       setLoading(true)
       try {
-        const response = await api.getSession(formData.joiningCode)
+        const response = await api.getSession(codeToValidate)
         console.log("getSession Response:", response)
         if (response.success && response.data) {
           console.log("Session data:", response.data)
