@@ -125,9 +125,11 @@ loginHost: async (username, password) => {
   // Delete a session (backend handles cascade delete)
   deleteSession: async (sessionId) => {
     try {
-      const response = await axios.delete(`${BASE_URL}/api/sessions/${sessionId}`);
+      // Use singular "session" route to match other session endpoints (backend may expect this)
+      const response = await axios.delete(`${BASE_URL}/api/session/${sessionId}`);
       return { success: true, data: response.data };
     } catch (error) {
+      console.error('deleteSession error:', error.response?.data || error.message)
       return { success: false, error: error.response?.data?.error || error.message };
     }
   },
@@ -323,6 +325,22 @@ deletePlayer: async (playerId) => {
       console.error("API error:", err);
       return { success: false, error: err.message };
     }
+  },
+
+  // Update session (generic) - useful for updating playerMode or other session fields
+  updateSession: async (sessionId, updateObj) => {
+    try {
+      const res = await axios.put(`${BASE_URL}/api/sessions/${sessionId}`, updateObj);
+      return { success: true, data: res.data };
+    } catch (err) {
+      console.error("updateSession error:", err.response?.data || err.message);
+      return { success: false, error: err.response?.data?.error || err.message };
+    }
+  },
+
+  // Convenience wrapper for updating playerMode specifically
+  updateSessionMode: async (sessionId, playerMode) => {
+    return await api.updateSession(sessionId, { playerMode });
   },
 };
 

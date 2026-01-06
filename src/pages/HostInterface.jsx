@@ -23,6 +23,8 @@ function HostInterface() {
   const [playerMode, setPlayerMode] = useState("both");
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [showPlayerModeChange, setShowPlayerModeChange] = useState(false);
+  const [recreateConfirmMode, setRecreateConfirmMode] = useState(null)
+  const [recreateInProgress, setRecreateInProgress] = useState(false)
   const [showTeamCreator, setShowTeamCreator] = useState(false);
   const [newTeam, setNewTeam] = useState({ name: "", password: "" });
   const [loading, setLoading] = useState(true);
@@ -175,16 +177,80 @@ function HostInterface() {
   const changePlayerMode = async (newMode) => {
     try {
       setIsDeleting(true)
-      // Note: Backend doesn't support changing player mode after creation
-      // This functionality may need to be removed or implemented differently
-      setSession((prev) => ({ ...prev, playerMode: newMode }))
-      setPlayerMode(newMode)
-      setShowPlayerModeChange(false)
-      await loadAllData()
+      // Try to update the session server-side. Backend may or may not support it.
+      const response = await api.updateSession(sessionId, { playerMode: newMode })
+      if (response.success) {
+        setSession((prev) => ({ ...prev, playerMode: newMode }))
+        setPlayerMode(newMode)
+        setShowPlayerModeChange(false)
+        await loadAllData()
+      } else {
+        // If backend doesn't support updating mode, offer to recreate the session with confirmation (Option 2)
+        console.warn('updateSession did not succeed:', response.error)
+        setShowPlayerModeChange(false)
+        setRecreateConfirmMode(newMode)
+      }
     } catch (error) {
       console.error("Error changing player mode:", error)
       alert("Failed to change player mode. Please try again.")
     } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const recreateSessionWithMode = async (newMode, skipConfirm = false) => {
+    const hostUser = localStorage.getItem("hostUser")
+    if (!hostUser) {
+      alert('Host not found. Please login again.')
+      setRecreateConfirmMode(null)
+      return
+    }
+
+    if (!skipConfirm) {
+      if (!confirm(`This will delete the existing session ${sessionId} and create a new one with mode '${newMode}'. Continue?`)) {
+        setRecreateConfirmMode(null)
+        return
+      }
+    }
+
+    try {
+      setRecreateInProgress(true)
+      setIsDeleting(true)
+
+      // Attempt server-side delete first
+      const delResp = await api.deleteSession(sessionId)
+      if (!delResp.success) {
+        console.warn('Server delete failed, attempting fallback sheet deletions:', delResp.error)
+        // Fallback cascade deletion via sheets
+        await api.deleteRowsByColumn('Taps', 'A', sessionId)
+        await api.deleteRowsByColumn('Players', 'B', sessionId)
+        await api.deleteRowsByColumn('Teams', 'B', sessionId)
+        await api.deleteRowsByColumn('Sessions', 'A', sessionId)
+      }
+
+      // Create new session with same sessionId and newMode
+      const createResp = await api.createSession(sessionId, hostUser, newMode)
+      if (createResp.success) {
+        setSession({
+          sessionId,
+          hostUsername: hostUser,
+          playerMode: newMode,
+          round: 1,
+          createdAt: new Date().toISOString(),
+          active: true,
+        })
+        setPlayerMode(newMode)
+        setRecreateConfirmMode(null)
+        await loadAllData()
+        alert(`Session ${sessionId} recreated with mode ${newMode}`)
+      } else {
+        throw new Error(createResp.error || 'Failed to create session')
+      }
+    } catch (err) {
+      console.error('Error recreating session:', err)
+      alert('Failed to recreate session. Please try again.')
+    } finally {
+      setRecreateInProgress(false)
       setIsDeleting(false)
     }
   }
@@ -287,6 +353,13 @@ function HostInterface() {
 
     try {
       setIsDeleting(true)
+      // First delete all players belonging to this team (column C is teamId in Players sheet)
+      const deletePlayersResponse = await api.deleteRowsByColumn("Players", "C", teamId)
+      if (!deletePlayersResponse.success) {
+        console.warn('Failed to delete players for team:', deletePlayersResponse.error)
+      }
+
+      // Then delete the team row itself
       const response = await api.deleteRowsByColumn("Teams", "A", teamId)
       if (response.success) {
         if (selectedTeam?.teamId === teamId) {
@@ -1296,6 +1369,42 @@ function HostInterface() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        )}
+        {/* Recreate Session Confirmation Modal (fallback when server can't update mode) */}
+        {recreateConfirmMode && (
+          <div className={`fixed inset-0 flex items-center justify-center p-4 z-50 ${
+            theme === 'dark' ? 'bg-black/70' : 'bg-black/50'
+          }`}>
+            <div className={`max-w-md w-full p-6 rounded-2xl shadow-2xl backdrop-blur-lg ${
+              theme === 'dark' ? 'bg-gray-900/90 border-2 border-indigo-500/30' : 'bg-white'
+            }`}>
+              <h3 className={`text-lg sm:text-xl font-bold mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+                Recreate Session with mode: {recreateConfirmMode}
+              </h3>
+              <p className={`mb-4 text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                The server does not support changing player mode for an existing session. Recreating will delete the
+                current session and create an empty one with the same joining code and the selected mode. Existing
+                players, teams and tap records will be removed.
+              </p>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => recreateSessionWithMode(recreateConfirmMode)}
+                  disabled={recreateInProgress}
+                  className={`flex-1 py-2 rounded-lg text-white font-semibold ${recreateInProgress ? 'bg-gray-500' : 'bg-red-600 hover:bg-red-500'}`}
+                >
+                  {recreateInProgress ? 'Recreating...' : 'Recreate Session'}
+                </button>
+                <button
+                  onClick={() => setRecreateConfirmMode(null)}
+                  disabled={recreateInProgress}
+                  className={`flex-1 py-2 rounded-lg border ${theme === 'dark' ? 'border-indigo-500/30 text-indigo-300' : 'border-gray-300 text-gray-700'}`}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}

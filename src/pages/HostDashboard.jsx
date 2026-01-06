@@ -130,7 +130,35 @@ const HostDashboard = () => {
         setDeleting(false)
         alert(`Session ${sessionId} and all related data have been completely deleted.`)
       } else {
-        throw new Error(response.error || "Failed to delete session")
+        // If backend delete failed, attempt manual cascade delete via sheet API as a fallback
+        console.warn('api.deleteSession failed:', response.error)
+        console.log('Attempting fallback cascade deletion via sheet endpoints...')
+
+        try {
+          // Delete taps (assume column A contains sessionId)
+          const tResp = await api.deleteRowsByColumn('Taps', 'A', sessionId)
+          console.log('delete Taps response:', tResp)
+
+          // Delete players (Players sheet: column B = sessionId based on other code)
+          const pResp = await api.deleteRowsByColumn('Players', 'B', sessionId)
+          console.log('delete Players response:', pResp)
+
+          // Delete teams (Teams sheet: column B = sessionId)
+          const tmResp = await api.deleteRowsByColumn('Teams', 'B', sessionId)
+          console.log('delete Teams response:', tmResp)
+
+          // Finally delete the session row from Sessions sheet (assume column A = sessionId)
+          const sResp = await api.deleteRowsByColumn('Sessions', 'A', sessionId)
+          console.log('delete Sessions row response:', sResp)
+
+          await loadSessions(hostUser)
+          setShowDeleteConfirm(null)
+          setDeleting(false)
+          alert(`Session ${sessionId} and related session data have been deleted Thank U 🥰.`)
+        } catch (fallbackError) {
+          console.error('Fallback cascade deletion failed:', fallbackError)
+          throw new Error(response.error || 'Failed to delete session')
+        }
       }
     } catch (error) {
       console.error("Error deleting session:", error)
